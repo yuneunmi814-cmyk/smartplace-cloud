@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.db
+*.sqlite*
+.env
+
+# Node
+node_modules/
+dist/
+*.tsbuildinfo
+
+# Seeded Naver sessions (contain cookies) + diagnostics
+gateway/sessions/
+gateway/diag/
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/
