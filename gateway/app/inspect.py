@@ -28,10 +28,11 @@ def main() -> None:
     #   <login>                  → list places
     #   <login> <placeId>        → booking partner detail (예약 연동된 곳)
     #   <login> details <placeId>→ smartplace details?menu=basic (연동 안 된 곳)
-    mode = sys.argv[2] if len(sys.argv) > 3 and sys.argv[2] in ("details", "order") else None
+    mode = sys.argv[2] if len(sys.argv) > 3 and sys.argv[2] in ("details", "order", "brand") else None
     place_id = sys.argv[3] if mode else (sys.argv[2] if len(sys.argv) > 2 else None)
     mode_details = mode == "details"
     mode_order = mode == "order"
+    mode_brand = mode == "brand"
 
     settings = get_settings()
     store = get_session_store()
@@ -51,7 +52,9 @@ def main() -> None:
         context = browser.new_context(storage_state=json.loads(state))
         page = context.new_page()
 
-        if not place_id:
+        if mode_brand:
+            _inspect_brand(page, settings, diag, place_id)  # place_id holds brandSeq here
+        elif not place_id:
             _inspect_home(page, settings, diag)
         elif mode_details:
             _inspect_details(page, settings, diag, place_id)
@@ -114,6 +117,110 @@ def _inspect_home(page, settings, diag: Path) -> None:
             print(f"    {link.get('href')}   {(link.get('text') or '')[:30]}")
     print(f"\n스크린샷: {shot}")
     print("현재 URL:", page.url)
+
+
+def _inspect_brand(page, settings, diag: Path, brand_seq: str) -> None:
+    """Scrape the brand branch list → (지점명, placeSeq) for every branch.
+    placeSeq feeds the unified edit URL /brand/biz-edit?placeSeq=..&brandSeq=.."""
+    url = f"{settings.smartplace_url}/brand?brandSeq={brand_seq}&menu=branch"
+    page.goto(url, wait_until="domcontentloaded")
+    page.wait_for_timeout(5000)
+
+    mapping: dict[str, str] = {}  # placeSeq -> 지점명
+    raw_hrefs: set[str] = set()
+
+    def scrape_current() -> None:
+        # For each biz-edit link, walk up to its row and read the 지점명.
+        links = page.eval_on_selector_all(
+            "a[href*='biz-edit'], a[href*='placeSeq']",
+            """els => els.map(a => {
+                const href = a.getAttribute('href') || '';
+                let row = a.closest('tr') || a.closest('[role=row]') || a.closest('li');
+                if (!row) {
+                    let p = a;
+                    for (let i = 0; i < 8; i++) {
+                        p = p && p.parentElement;
+                        if (p && (p.innerText || '').includes('79대포')) { row = p; break; }
+                    }
+                }
+                return { href, text: row ? (row.innerText || '').trim() : '' };
+            })""",
+        )
+        for link in links:
+            href = link.get("href") or ""
+            raw_hrefs.add(href)
+            m = re.search(r"placeSeq=(\d+)", href)
+            if m:
+                nm = re.search(r"79대포[^\n\t]*", link.get("text") or "")
+                name = nm.group(0).strip() if nm else (link.get("text") or "")[:30]
+                mapping.setdefault(m.group(1), name)
+
+    # Best-effort: bump the per-page selector to 100 so fewer pages to click.
+    for sel in ("text=10개씩", "text=20개씩", "text=50개씩"):
+        try:
+            box = page.locator(sel).first
+            if box.count():
+                box.click(timeout=2000)
+                page.wait_for_timeout(800)
+                opt = page.locator("text=100개씩").first
+                if opt.count():
+                    opt.click(timeout=2000)
+                    page.wait_for_timeout(2000)
+                break
+        except Exception:
+            pass
+
+    # Numbered pagination: scrape each page, click '다음'/'>' until no more.
+    page_no = 1
+    while page_no <= 30:
+        page.wait_for_timeout(1200)
+        before = len(mapping)
+        scrape_current()
+        target = str(page_no + 1)
+        clicked = False
+        for sel in (
+            f"//a[normalize-space()='{target}']",
+            f"//button[normalize-space()='{target}']",
+            "button[aria-label*='다음']",
+            "a[aria-label*='다음']",
+        ):
+            try:
+                btn = page.locator(sel).last
+                if btn.count() and btn.is_enabled():
+                    btn.click(timeout=2500)
+                    clicked = True
+                    break
+            except Exception:
+                continue
+        if not clicked:
+            break
+        page.wait_for_timeout(1500)
+        # stop if the page didn't actually advance (no new links after 1 more scrape)
+        scrape_current()
+        if len(mapping) == before:
+            break
+        page_no += 1
+
+    shot = diag / f"brand_{brand_seq}.png"
+    page.screenshot(path=str(shot), full_page=True)
+    html_path = diag / f"brand_{brand_seq}.html"
+    html_path.write_text(page.content())
+
+    # Save the full cross-page mapping to a file so it can be read back wholesale.
+    json_path = diag / f"brand_{brand_seq}_places.json"
+    json_path.write_text(json.dumps(mapping, ensure_ascii=False, indent=2))
+
+    print(f"=== 브랜드 지점 스크랩: brandSeq {brand_seq} ===")
+    print(f"placeSeq 추출: {len(mapping)}곳")
+    print(f"전체 매핑 저장: {json_path}")
+    for seq, name in mapping.items():
+        print(f"  placeSeq={seq}   {name}")
+    if not mapping:
+        print("  (placeSeq 링크 자동추출 실패 — 아래 raw href / 스크린샷 확인)")
+        for href in list(raw_hrefs)[:20]:
+            print(f"    {href}")
+    print(f"\n스크린샷: {shot}")
+    print(f"HTML 덤프: {html_path}")
 
 
 def _inspect_order(page, settings, diag: Path, place_id: str) -> None:

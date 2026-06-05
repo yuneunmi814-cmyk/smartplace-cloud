@@ -61,6 +61,42 @@ def apply_main_image(credential: dict, place_id: str, image_url: str) -> None:
             browser.close()
 
 
+def apply_brand_image(credential: dict, place_seq: str, brand_seq: str, image_urls) -> None:
+    """Unified route: set 대표 + add photos via the brand biz-edit page.
+    `image_urls` may be a single path/URL or a list (uploaded together; the
+    first becomes 대표). Works for ALL franchise branches."""
+    if settings.mock:
+        return
+    login_id = credential.get("loginId")
+    if not login_id:
+        raise GatewayError("credential must contain loginId (matching a seeded session)")
+    urls = image_urls if isinstance(image_urls, (list, tuple)) else [image_urls]
+
+    from playwright.sync_api import sync_playwright
+
+    with sync_playwright() as p:
+        browser = p.chromium.launch(
+            headless=settings.headless,
+            args=["--disable-blink-features=AutomationControlled"],
+        )
+        try:
+            context = _build_context(p, browser, login_id, credential.get("loginPw"))
+            if not (set(AUTH_COOKIES) & {c["name"] for c in context.cookies()}):
+                raise CaptchaRequired("세션이 만료되었습니다. seed_session을 다시 실행하세요.")
+            page = context.new_page()
+            page.goto(
+                f"{settings.smartplace_url}/brand/biz-edit"
+                f"?placeSeq={place_seq}&menu=basic&brandSeq={brand_seq}",
+                wait_until="domcontentloaded",
+            )
+            page.wait_for_timeout(5000)
+            paths = [_download(u) for u in urls]
+            _upload_input_image(page, paths)
+            store.put(login_id, json.dumps(context.storage_state()))
+        finally:
+            browser.close()
+
+
 def _build_context(p, browser, login_id: str, login_pw):
     cached = store.get(login_id)
     if cached:
@@ -137,22 +173,43 @@ def _apply_details(page, place_id: str, image_path: str) -> None:
         wait_until="domcontentloaded",
     )
     page.wait_for_timeout(5000)
-    _dismiss_group_modal(page)
+    _upload_input_image(page, image_path)
 
-    before = _details_count(page)
+
+def _upload_input_image(page, image_paths) -> None:
+    """Shared upload for the InputImageUpload pages (details + brand biz-edit).
+    `image_paths` may be one path or a list (uploaded together; first = 대표)."""
+    paths = list(image_paths) if isinstance(image_paths, (list, tuple)) else [image_paths]
+    _dismiss_group_modal(page)
+    before = _details_count(page) or 0
 
     file_input = page.locator("label[class*='InputImageUpload'] input[type=file]").first
     if not file_input.count():
         file_input = page.locator("input[type=file]").first
     if not file_input.count():
-        raise GatewayError("파일 입력칸을 찾지 못했습니다 (details).")
-    file_input.set_input_files(image_path)
-    page.wait_for_timeout(3000)
+        raise GatewayError("파일 입력칸을 찾지 못했습니다.")
+    file_input.set_input_files(paths)
+
+    # CRITICAL: wait until every file finishes uploading (staged count reaches
+    # target) BEFORE saving — otherwise 저장하기 commits mid-upload and the
+    # still-processing photos are silently dropped.
+    target = before + len(paths)
+    for _ in range(120):
+        page.wait_for_timeout(1000)
+        cur = _details_count(page)
+        if cur is not None and cur >= target:
+            break
+
     _click_confirm(page)
     _save(page, "저장하기")
+    page.wait_for_timeout(3000)
 
-    after = _details_count(page)
-    _verify(before, after)
+    # Confirm the save actually persisted: reload and recheck the committed count.
+    page.reload(wait_until="domcontentloaded")
+    page.wait_for_timeout(4000)
+    final = _details_count(page)
+    if final is not None and final < target:
+        raise GatewayError(f"저장이 반영되지 않았습니다 (목표 {target}, 실제 {final}). 재시도 필요.")
 
 
 def _details_count(page) -> int | None:
