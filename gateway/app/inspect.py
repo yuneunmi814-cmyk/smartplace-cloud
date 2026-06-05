@@ -28,8 +28,10 @@ def main() -> None:
     #   <login>                  → list places
     #   <login> <placeId>        → booking partner detail (예약 연동된 곳)
     #   <login> details <placeId>→ smartplace details?menu=basic (연동 안 된 곳)
-    mode_details = len(sys.argv) > 3 and sys.argv[2] == "details"
-    place_id = sys.argv[3] if mode_details else (sys.argv[2] if len(sys.argv) > 2 else None)
+    mode = sys.argv[2] if len(sys.argv) > 3 and sys.argv[2] in ("details", "order") else None
+    place_id = sys.argv[3] if mode else (sys.argv[2] if len(sys.argv) > 2 else None)
+    mode_details = mode == "details"
+    mode_order = mode == "order"
 
     settings = get_settings()
     store = get_session_store()
@@ -53,6 +55,8 @@ def main() -> None:
             _inspect_home(page, settings, diag)
         elif mode_details:
             _inspect_details(page, settings, diag, place_id)
+        elif mode_order:
+            _inspect_order(page, settings, diag, place_id)
         else:
             _inspect_photo(page, settings, diag, place_id)
 
@@ -110,6 +114,71 @@ def _inspect_home(page, settings, diag: Path) -> None:
             print(f"    {link.get('href')}   {(link.get('text') or '')[:30]}")
     print(f"\n스크린샷: {shot}")
     print("현재 URL:", page.url)
+
+
+def _inspect_order(page, settings, diag: Path, place_id: str) -> None:
+    # Resolve bookingBusinessId, open partner detail, click 순서설정, dump the UI.
+    page.goto(f"{settings.smartplace_url}/bizes/place/{place_id}", wait_until="domcontentloaded")
+    page.wait_for_timeout(3500)
+    m = re.search(r"bookingBusinessId=(\d+)", page.url)
+    if not m:
+        print(f"⚠️ bookingBusinessId 없음 (placeId={place_id}). 이 매장은 partner 유형이 아닙니다.")
+        return
+    booking_id = m.group(1)
+    page.goto(f"{settings.booking_partner_url}/bizes/{booking_id}/detail", wait_until="domcontentloaded")
+    page.wait_for_timeout(6000)
+
+    # dismiss group-account modal
+    try:
+        btn = page.get_by_role("button", name=re.compile("단체아이디로 계속"))
+        if btn.count():
+            btn.first.click(timeout=5000)
+            page.wait_for_timeout(1000)
+    except Exception:
+        pass
+
+    page.screenshot(path=str(diag / f"order_before_{booking_id}.png"), full_page=True)
+
+    # Click 순서설정
+    clicked = False
+    try:
+        btn = page.get_by_role("button", name=re.compile("순서설정"))
+        if btn.count():
+            btn.first.click(timeout=5000)
+            page.wait_for_timeout(3000)
+            clicked = True
+    except Exception:
+        pass
+
+    shot = diag / f"order_after_{booking_id}.png"
+    page.screenshot(path=str(shot), full_page=True)
+    html_path = diag / f"order_{booking_id}.html"
+    html_path.write_text(page.content())
+
+    draggable = page.locator("[draggable='true']").count()
+    buttons = page.eval_on_selector_all(
+        "button",
+        "els => els.map(e => (e.innerText||'').trim()).filter(Boolean).slice(0, 40)",
+    )
+    candidates = page.eval_on_selector_all(
+        "button, a, [role=button], [class*='rep'], [class*='Rep'], [class*='대표']",
+        """els => els.map(e => ({
+              tag: e.tagName,
+              cls: (e.className && e.className.toString ? e.className.toString() : ''),
+              text: (e.innerText || e.getAttribute('aria-label') || '').trim()
+           })).filter(x => /대표|맨\\s*앞|순서|이동|확인|저장|적용/i.test(x.text || x.cls)).slice(0, 30)""",
+    )
+
+    print(f"=== 순서설정 진단: bookingBusinessId {booking_id} ===")
+    print(f"순서설정 버튼 클릭됨: {clicked}")
+    print(f"draggable 요소 개수: {draggable}")
+    print(f"버튼 텍스트: {buttons}")
+    print("대표/순서 관련 후보:")
+    for c in candidates:
+        print(f"  <{c['tag'].lower()} class='{c['cls'][:50]}'>  {c['text'][:40]!r}")
+    print(f"\n스크린샷(전): order_before_{booking_id}.png")
+    print(f"스크린샷(후): {shot}")
+    print(f"HTML 덤프: {html_path}")
 
 
 def _inspect_details(page, settings, diag: Path, place_id: str) -> None:
