@@ -1,0 +1,52 @@
+name: Build Windows EXE (desktop beta)
+
+# 깃허브의 윈도우 서버에서 .exe 를 빌드합니다.
+# 실행: GitHub → Actions 탭 → 이 워크플로 → "Run workflow" 클릭
+# 끝나면 Artifacts 에서 zip 다운로드 → 압축 풀고 SmartPlacePhoto.exe 더블클릭.
+# (실험적: Playwright+PyInstaller 조합은 첫 빌드 후 조정이 필요할 수 있어요)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: desktop
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pyinstaller
+
+      - name: Install Chromium into the package (so it bundles)
+        env:
+          PLAYWRIGHT_BROWSERS_PATH: '0'
+        run: playwright install chromium
+
+      - name: Build EXE with PyInstaller
+        env:
+          PLAYWRIGHT_BROWSERS_PATH: '0'
+        run: >
+          pyinstaller --noconfirm --onedir --name SmartPlacePhoto
+          --add-data "ui;ui"
+          --collect-all playwright
+          --collect-all webview
+          app.py
+
+      - name: Package as zip
+        run: powershell Compress-Archive -Path "dist/SmartPlacePhoto/*" -DestinationPath "SmartPlacePhoto-windows.zip"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SmartPlacePhoto-windows
+          path: desktop/SmartPlacePhoto-windows.zip
+          retention-days: 30
