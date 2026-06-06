@@ -32,19 +32,35 @@ def has_session() -> bool:
 
 def login() -> bool:
     """Opens a real Naver login window. The user logs in (id/pw/captcha/2FA
-    themselves). On reaching SmartPlace we save the session and return True."""
+    themselves). We detect success the moment the Naver auth cookies appear —
+    no need to navigate anywhere — then save the session and return True."""
     SESSION_FILE.parent.mkdir(parents=True, exist_ok=True)
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=False, args=["--disable-blink-features=AutomationControlled"])
         ctx = browser.new_context()
         page = ctx.new_page()
         page.goto(NAVER_LOGIN)
-        try:
-            page.wait_for_url("**smartplace.naver.com**", timeout=180000)
-        except Exception:
-            pass
-        ok = bool(set(AUTH_COOKIES) & {c["name"] for c in ctx.cookies()})
+
+        ok = False
+        for _ in range(180):  # poll up to ~6 min while the user logs in
+            time.sleep(2)
+            try:
+                cookies = {c["name"] for c in ctx.cookies()}
+            except Exception:
+                break  # window/context closed
+            if set(AUTH_COOKIES) & cookies:
+                ok = True
+                break
+            if not ctx.pages:  # user closed the window
+                break
+
         if ok:
+            # Warm the SmartPlace session so cookies are fully provisioned.
+            try:
+                page.goto(SMARTPLACE, wait_until="domcontentloaded")
+                page.wait_for_timeout(2500)
+            except Exception:
+                pass
             SESSION_FILE.write_text(json.dumps(ctx.storage_state()))
         browser.close()
         return ok
