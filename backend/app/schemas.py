@@ -146,6 +146,24 @@ class LicenseRes(BaseModel):
     devicesUsed: int
 
 
+class DeviceRes(BaseModel):
+    id: int
+    fingerprint: str
+    name: str | None
+    createdAt: datetime
+    lastSeenAt: datetime | None
+
+
+class LicenseDetailRes(BaseModel):
+    id: int
+    licenseKey: str
+    plan: str
+    seats: int
+    status: str
+    expiresAt: datetime
+    devices: list[DeviceRes]
+
+
 class LicenseActivateReq(BaseModel):
     licenseKey: str
     deviceFingerprint: str = Field(min_length=8, max_length=128)

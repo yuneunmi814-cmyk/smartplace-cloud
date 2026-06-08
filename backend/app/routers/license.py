@@ -13,12 +13,14 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.database import get_db
-from app.core.security import require_role
+from app.core.security import get_current_user, require_role
 from app.models import Device, License, Subscription, User
 from app.schemas import (
+    DeviceRes,
     LicenseActivateReq,
     LicenseActivateRes,
     LicenseCreateReq,
+    LicenseDetailRes,
     LicenseRes,
 )
 from app.services import audit
@@ -82,6 +84,94 @@ def create_license(
         expiresAt=lic.expires_at,
         devicesUsed=0,
     )
+
+
+def _detail(lic: License) -> LicenseDetailRes:
+    return LicenseDetailRes(
+        id=lic.id,
+        licenseKey=lic.license_key,
+        plan=lic.plan,
+        seats=lic.seats,
+        status=lic.status,
+        expiresAt=lic.expires_at,
+        devices=[
+            DeviceRes(
+                id=d.id,
+                fingerprint=d.fingerprint,
+                name=d.name,
+                createdAt=d.created_at,
+                lastSeenAt=d.last_seen_at,
+            )
+            for d in lic.devices
+        ],
+    )
+
+
+@router.get("/mine", response_model=list[LicenseDetailRes])
+def my_licenses(
+    db: Session = Depends(get_db), user: User = Depends(get_current_user)
+) -> list[LicenseDetailRes]:
+    """The caller's own licenses, each with its activated devices/seats."""
+    rows = db.scalars(
+        select(License).where(License.user_id == user.id).order_by(License.id.desc())
+    ).all()
+    return [_detail(lic) for lic in rows]
+
+
+def _owned_license(license_id: int, db: Session, user: User) -> License:
+    lic = db.get(License, license_id)
+    if not lic:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "라이선스를 찾을 수 없습니다.")
+    if lic.user_id != user.id and user.role != "admin":
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "권한이 없습니다.")
+    return lic
+
+
+@router.delete("/{license_id}/devices/{device_id}", status_code=status.HTTP_204_NO_CONTENT)
+def deactivate_device(
+    license_id: int,
+    device_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> None:
+    """Release a seat by removing a bound device (owner or admin)."""
+    lic = _owned_license(license_id, db, user)
+    device = db.get(Device, device_id)
+    if not device or device.license_id != lic.id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "기기를 찾을 수 없습니다.")
+    db.delete(device)
+    db.commit()
+    audit.record(
+        db,
+        actor_user_id=user.id,
+        action="license.device.deactivate",
+        target_type="device",
+        target_id=device_id,
+        detail={"licenseId": lic.id, "fingerprint": device.fingerprint[:16]},
+    )
+
+
+@router.post("/{license_id}/revoke", response_model=LicenseDetailRes)
+def revoke_license(
+    license_id: int,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_role("admin")),
+) -> LicenseDetailRes:
+    """Admin disables a license entirely — future activations are rejected."""
+    lic = db.get(License, license_id)
+    if not lic:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "라이선스를 찾을 수 없습니다.")
+    lic.status = "revoked"
+    db.commit()
+    db.refresh(lic)
+    audit.record(
+        db,
+        actor_user_id=admin.id,
+        action="license.revoke",
+        target_type="license",
+        target_id=lic.id,
+    )
+    return _detail(lic)
 
 
 @router.post("/activate", response_model=LicenseActivateRes)

@@ -111,6 +111,63 @@ def test_seat_limit_enforced(client, admin_token, auth):
     assert b.status_code == 409
 
 
+def test_list_mine_and_deactivate_frees_seat(client, admin_token, user_token, auth):
+    # Admin issues a 1-seat license to the regular user.
+    key = client.post(
+        "/api/v1/license",
+        headers=auth(admin_token),
+        json={"email": "user@example.com", "plan": "basic", "seats": 1},
+    ).json()["licenseKey"]
+    client.post("/api/v1/license/activate",
+                json={"licenseKey": key, "deviceFingerprint": "fingerprint-dev1", "deviceName": "Old PC"})
+
+    # Owner sees the license + its one device.
+    mine = client.get("/api/v1/license/mine", headers=auth(user_token)).json()
+    assert len(mine) == 1
+    lic = mine[0]
+    assert len(lic["devices"]) == 1
+    dev_id = lic["devices"][0]["id"]
+
+    # Seat is full → a second device is rejected.
+    assert client.post("/api/v1/license/activate",
+                       json={"licenseKey": key, "deviceFingerprint": "fingerprint-dev2"}).status_code == 409
+
+    # Owner deactivates the old device → seat freed → new device activates.
+    d = client.delete(f"/api/v1/license/{lic['id']}/devices/{dev_id}", headers=auth(user_token))
+    assert d.status_code == 204
+    assert client.post("/api/v1/license/activate",
+                       json={"licenseKey": key, "deviceFingerprint": "fingerprint-dev2"}).status_code == 200
+
+
+def test_deactivate_requires_ownership(client, admin_token, user_token, auth):
+    # License belongs to admin; the regular user must not touch its devices.
+    key = client.post(
+        "/api/v1/license",
+        headers=auth(admin_token),
+        json={"email": "admin@example.com", "plan": "basic", "seats": 1},
+    ).json()
+    lid = key["id"]
+    client.post("/api/v1/license/activate",
+                json={"licenseKey": key["licenseKey"], "deviceFingerprint": "fingerprint-adm1"})
+    devs = client.get("/api/v1/license/mine", headers=auth(admin_token)).json()[0]["devices"]
+    r = client.delete(f"/api/v1/license/{lid}/devices/{devs[0]['id']}", headers=auth(user_token))
+    assert r.status_code == 403
+
+
+def test_revoke_blocks_activation(client, admin_token, auth):
+    created = client.post(
+        "/api/v1/license",
+        headers=auth(admin_token),
+        json={"email": "admin@example.com", "plan": "basic", "seats": 1},
+    ).json()
+    r = client.post(f"/api/v1/license/{created['id']}/revoke", headers=auth(admin_token))
+    assert r.status_code == 200
+    assert r.json()["status"] == "revoked"
+    act = client.post("/api/v1/license/activate",
+                      json={"licenseKey": created["licenseKey"], "deviceFingerprint": "fingerprint-x"})
+    assert act.status_code == 403
+
+
 def test_subscription_drives_expiry(client, admin_token, auth):
     client.post("/api/v1/auth/signup", json={"email": "sub@example.com", "password": "password123"})
     key = client.post(
