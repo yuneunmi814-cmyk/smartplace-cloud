@@ -53,6 +53,30 @@ class Settings(BaseSettings):
 
     cors_origins: list[str] = ["http://localhost:5173"]
 
+    # --- License signing (Ed25519) ---
+    # Private key (hex, 32 bytes) signs offline license files; keep it ONLY on
+    # the server. Public counterpart is baked into desktop/license.py.
+    # DEV DEFAULT below is a throwaway pair — regenerate for prod with
+    #   python -m scripts.gen_license_keys
+    # and set SMARTPLACE_LICENSE_PRIVATE_KEY in .env (never commit the real one).
+    license_private_key: str = (
+        "cd8b149dce67c9d01907962da78eb683371bb4ba3c75b51da6e533236313ee09"
+    )
+    # Matching public key — used server-side only for self-test/verification.
+    license_public_key: str = (
+        "82b12111ef3ff4f69260f17829ab190e0a1a49aafe642f9af506e314d90862ee"
+    )
+    # New licenses default to this many days when no subscription is attached.
+    license_default_days: int = 365
+
+    # --- Billing provider ---
+    # "mock" (default, no external calls) | "lemonsqueezy" | "stripe" | "toss"
+    billing_provider: str = "mock"
+    # LemonSqueezy: webhook signing secret (verifies webhook authenticity) and
+    # API key (outbound checkout creation). Leave unset to keep the Mock flow.
+    lemonsqueezy_webhook_secret: str | None = None
+    lemonsqueezy_api_key: str | None = None
+
 
 @lru_cache
 def get_settings() -> Settings:

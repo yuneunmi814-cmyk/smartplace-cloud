@@ -7,14 +7,21 @@
 """
 
 import json
+import os
 import threading
 from pathlib import Path
 
 import webview
 
 import automation
+import license as licensing
 
 window = None
+
+# 라이선스 강제 여부. 기본 off → 현재 베타는 지금처럼 그대로 동작.
+# 빌링이 라이브되면 SMARTPLACE_LICENSE_ENFORCE=1 로 켜면 미인증 시 실행이 막힘.
+ENFORCE_LICENSE = os.environ.get("SMARTPLACE_LICENSE_ENFORCE", "0") == "1"
+LICENSE_SERVER = os.environ.get("SMARTPLACE_LICENSE_SERVER", licensing.DEFAULT_SERVER)
 
 # 메뉴 CSV 양식 (엑셀에서 채워서 업로드). utf-8-sig = 엑셀 한글 깨짐 방지.
 MENU_TEMPLATE = (
@@ -26,6 +33,23 @@ MENU_TEMPLATE = (
 
 
 class Api:
+    # ---- 라이선스 ----------------------------------------------------------
+    def license_status(self) -> dict:
+        s = licensing.status(server=LICENSE_SERVER)
+        s["enforced"] = ENFORCE_LICENSE
+        return s
+
+    def activate_license(self, key: str) -> dict:
+        s = licensing.status((key or "").strip(), server=LICENSE_SERVER)
+        s["enforced"] = ENFORCE_LICENSE
+        return s
+
+    def _licensed(self) -> bool:
+        """강제 모드일 때만 검사. 미강제면 항상 통과(베타)."""
+        if not ENFORCE_LICENSE:
+            return True
+        return licensing.status(server=LICENSE_SERVER).get("licensed", False)
+
     def has_session(self) -> dict:
         return {"ok": automation.has_session()}
 
@@ -74,11 +98,15 @@ class Api:
         return {"started": True}
 
     def apply(self, brand_seq: str, place_seqs: list, folder: str) -> dict:
+        if not self._licensed():
+            return {"error": "라이선스가 필요합니다. 상단에서 라이선스 키를 활성화하세요."}
         return self._run_bg(
             lambda cb: automation.apply_bulk(brand_seq.strip(), [str(s) for s in place_seqs], folder, cb))
 
     def apply_menu(self, brand_seq: str, place_seqs: list, csv_path: str,
                    image_dir: str, replace: bool) -> dict:
+        if not self._licensed():
+            return {"error": "라이선스가 필요합니다. 상단에서 라이선스 키를 활성화하세요."}
         return self._run_bg(
             lambda cb: automation.apply_menu_bulk(
                 brand_seq.strip(), [str(s) for s in place_seqs],
