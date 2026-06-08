@@ -154,6 +154,19 @@ def test_deactivate_requires_ownership(client, admin_token, user_token, auth):
     assert r.status_code == 403
 
 
+def test_admin_list_all_licenses(client, admin_token, user_token, auth):
+    client.post("/api/v1/license", headers=auth(admin_token),
+                json={"email": "user@example.com", "plan": "pro", "seats": 2})
+    rows = client.get("/api/v1/license", headers=auth(admin_token))
+    assert rows.status_code == 200
+    body = rows.json()
+    assert len(body) == 1
+    assert body[0]["ownerEmail"] == "user@example.com"
+    assert body[0]["devicesUsed"] == 0
+    # Non-admin is forbidden from the overview.
+    assert client.get("/api/v1/license", headers=auth(user_token)).status_code == 403
+
+
 def test_revoke_blocks_activation(client, admin_token, auth):
     created = client.post(
         "/api/v1/license",

@@ -164,6 +164,19 @@ class LicenseDetailRes(BaseModel):
     devices: list[DeviceRes]
 
 
+class LicenseAdminRes(BaseModel):
+    """Admin overview row — includes the owner's email and seats in use."""
+
+    id: int
+    licenseKey: str
+    ownerEmail: EmailStr
+    plan: str
+    seats: int
+    status: str
+    expiresAt: datetime
+    devicesUsed: int
+
+
 class LicenseActivateReq(BaseModel):
     licenseKey: str
     deviceFingerprint: str = Field(min_length=8, max_length=128)

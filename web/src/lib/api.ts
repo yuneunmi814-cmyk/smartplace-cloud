@@ -102,6 +102,41 @@ export interface Stats {
   pendingTasks: number;
   users: number;
 }
+export interface LicenseDevice {
+  id: number;
+  fingerprint: string;
+  name: string | null;
+  createdAt: string;
+  lastSeenAt: string | null;
+}
+export interface LicenseDetail {
+  id: number;
+  licenseKey: string;
+  plan: string;
+  seats: number;
+  status: string;
+  expiresAt: string;
+  devices: LicenseDevice[];
+}
+export interface LicenseAdmin {
+  id: number;
+  licenseKey: string;
+  ownerEmail: string;
+  plan: string;
+  seats: number;
+  status: string;
+  expiresAt: string;
+  devicesUsed: number;
+}
+export interface LicenseCreated {
+  id: number;
+  licenseKey: string;
+  plan: string;
+  seats: number;
+  status: string;
+  expiresAt: string;
+  devicesUsed: number;
+}
 
 export const api = {
   signup: (email: string, password: string) =>
@@ -143,4 +178,13 @@ export const api = {
     req<{ ok: boolean }>(`/api/v1/admin/users/${id}/role`, { method: 'PATCH', body: JSON.stringify({ role }) }),
   audit: () => req<AuditRow[]>('/api/v1/admin/audit'),
   stats: () => req<Stats>('/api/v1/admin/stats'),
+
+  myLicenses: () => req<LicenseDetail[]>('/api/v1/license/mine'),
+  deactivateDevice: (licenseId: number, deviceId: number) =>
+    req<void>(`/api/v1/license/${licenseId}/devices/${deviceId}`, { method: 'DELETE' }),
+  listLicenses: () => req<LicenseAdmin[]>('/api/v1/license'),
+  createLicense: (payload: { email: string; plan: string; seats: number; days?: number }) =>
+    req<LicenseCreated>('/api/v1/license', { method: 'POST', body: JSON.stringify(payload) }),
+  revokeLicense: (id: number) =>
+    req<LicenseAdmin>(`/api/v1/license/${id}/revoke`, { method: 'POST' }),
 };

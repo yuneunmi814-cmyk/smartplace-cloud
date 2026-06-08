@@ -19,6 +19,7 @@ from app.schemas import (
     DeviceRes,
     LicenseActivateReq,
     LicenseActivateRes,
+    LicenseAdminRes,
     LicenseCreateReq,
     LicenseDetailRes,
     LicenseRes,
@@ -172,6 +173,29 @@ def revoke_license(
         target_id=lic.id,
     )
     return _detail(lic)
+
+
+@router.get("", response_model=list[LicenseAdminRes])
+def list_all(
+    db: Session = Depends(get_db), admin: User = Depends(require_role("admin"))
+) -> list[LicenseAdminRes]:
+    """All licenses with owner email + seats in use (admin overview)."""
+    rows = db.execute(
+        select(License, User.email).join(User, License.user_id == User.id).order_by(License.id.desc())
+    ).all()
+    return [
+        LicenseAdminRes(
+            id=lic.id,
+            licenseKey=lic.license_key,
+            ownerEmail=email,
+            plan=lic.plan,
+            seats=lic.seats,
+            status=lic.status,
+            expiresAt=lic.expires_at,
+            devicesUsed=len(lic.devices),
+        )
+        for lic, email in rows
+    ]
 
 
 @router.post("/activate", response_model=LicenseActivateRes)

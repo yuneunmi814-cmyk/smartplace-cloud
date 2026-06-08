@@ -6,14 +6,16 @@ import { Images } from './pages/Images';
 import { Dispatch } from './pages/Dispatch';
 import { Tasks } from './pages/Tasks';
 import { Admin } from './pages/Admin';
+import { License } from './pages/License';
 
-type Tab = 'accounts' | 'images' | 'dispatch' | 'tasks' | 'admin';
+type Tab = 'accounts' | 'images' | 'dispatch' | 'tasks' | 'license' | 'admin';
 
 const TABS: { key: Tab; label: string; adminOnly?: boolean }[] = [
   { key: 'accounts', label: '계정·가맹점' },
   { key: 'images', label: '이미지' },
   { key: 'dispatch', label: '배포' },
   { key: 'tasks', label: '작업 현황' },
+  { key: 'license', label: '라이선스' },
   { key: 'admin', label: '관리자', adminOnly: true },
 ];
 
@@ -59,6 +61,7 @@ export function App() {
         {tab === 'images' && <Images />}
         {tab === 'dispatch' && <Dispatch />}
         {tab === 'tasks' && <Tasks />}
+        {tab === 'license' && <License />}
         {tab === 'admin' && role === 'admin' && <Admin />}
       </main>
     </div>
