@@ -85,8 +85,12 @@
           <span id="folder" class="folder"></span>
         </div>
         <div id="menuBox" style="margin-top:14px; display:none">
-          <button class="btn-ghost" onclick="pickCsv()">메뉴 CSV 선택</button>
-          <span id="csv" class="folder"></span>
+          <p class="muted" style="margin:0 0 8px">① 양식 받기 → 엑셀로 메뉴 채우기 → ② 작성한 파일 선택</p>
+          <button class="btn-ghost" onclick="saveTemplate()">📥 메뉴 양식(CSV) 받기</button>
+          <div style="margin-top:8px">
+            <button class="btn-ghost" onclick="pickCsv()">② 작성한 CSV 선택</button>
+            <span id="csv" class="folder"></span>
+          </div>
           <div style="margin-top:8px">
             <button class="btn-ghost" onclick="pickMenuImg()">메뉴 이미지 폴더 (선택)</button>
             <span id="menuImg" class="folder"></span>
@@ -166,6 +170,12 @@
           folder = r.folder;
           document.getElementById('folder').textContent = '  ' + folder;
           document.getElementById('s4').classList.remove('disabled');
+        }
+      }
+      async function saveTemplate() {
+        const r = await api().save_template();
+        if (r.saved) {
+          alert('메뉴 양식을 저장했어요:\n' + r.saved + '\n\n엑셀로 열어 메뉴를 채운 뒤, "② 작성한 CSV 선택"으로 올리세요.');
         }
       }
       async function pickCsv() {

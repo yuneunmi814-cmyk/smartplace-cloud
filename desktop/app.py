@@ -8,12 +8,21 @@
 
 import json
 import threading
+from pathlib import Path
 
 import webview
 
 import automation
 
 window = None
+
+# 메뉴 CSV 양식 (엑셀에서 채워서 업로드). utf-8-sig = 엑셀 한글 깨짐 방지.
+MENU_TEMPLATE = (
+    "name,price,description,image,recommended\n"
+    "빠삭파전,6900,겉바속촉 빠삭파전,,Y\n"
+    "생크림막걸리,9000,부드럽고 시원한 막걸리,,N\n"
+    "소곱창전골,8900,가성비 좋은 소곱창전골,,N\n"
+)
 
 
 class Api:
@@ -40,6 +49,14 @@ class Api:
         result = window.create_file_dialog(
             webview.OPEN_DIALOG, file_types=("CSV 파일 (*.csv)", "모든 파일 (*.*)"))
         return {"path": result[0] if result else None}
+
+    def save_template(self) -> dict:
+        dest = window.create_file_dialog(webview.SAVE_DIALOG, save_filename="메뉴양식.csv")
+        if not dest:
+            return {"saved": None}
+        path = dest if isinstance(dest, str) else dest[0]
+        Path(path).write_text(MENU_TEMPLATE, encoding="utf-8-sig")
+        return {"saved": path}
 
     def _run_bg(self, fn):
         def run():

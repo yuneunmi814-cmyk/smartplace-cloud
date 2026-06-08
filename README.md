@@ -10,7 +10,7 @@
 
 ## 미리보기
 <p align="center">
-  <img src="docs/screenshot-main.png" width="49%" alt="앱 메인 화면 — 지점 자동 불러오기, 사진/메뉴 토글" />
+  <img src="docs/screenshot-main.png" width="49%" alt="앱 메인 — 네이버 로그인 → 지점 불러오기 → 사진/메뉴 → 실행" />
   <img src="docs/screenshot-result.png" width="49%" alt="일괄 실행 — 진행률과 성공 결과" />
 </p>
 
