@@ -20,3 +20,10 @@ gateway/diag/
 .DS_Store
 .vscode/
 .idea/
+
+# 다른 프로젝트(별도 레포) - 이 레포에 포함 금지
+desktop/planforge/
+.github/workflows/planforge-desktop-release.yml
+
+# 로컬 전용 청사진 문서
+license-subscription-reference.md
