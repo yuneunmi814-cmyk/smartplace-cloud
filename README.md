@@ -1,3 +1,5 @@
+<p align="right"><b>한국어</b> · <a href="README.en.md">English</a></p>
+
 # 📷 SmartPlace Bulk — 네이버 스마트플레이스 일괄 관리
 
 > 프랜차이즈 본사를 위한 **대표사진·메뉴 전 지점 일괄 등록 데스크톱 앱**
@@ -58,8 +60,8 @@ name,price,description,image,recommended
 ```
 desktop/   데스크톱 앱(pywebview + Playwright) — 배포되는 실행파일
 gateway/   CLI 자동화 도구(일괄 사진/메뉴, 브랜드 스크랩)
-cloud/     FastAPI 백엔드 + React 콘솔(라이선스·구독 뼈대)
-web/       관리 콘솔
+backend/   FastAPI 백엔드(다계정·작업 큐·S3·라이선스/구독)
+web/       React 관리 콘솔
 ```
 빌드: `.github/workflows/build-windows-exe.yml` (GitHub Actions에서 Windows .exe 자동 빌드)
 
