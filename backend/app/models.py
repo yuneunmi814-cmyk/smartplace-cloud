@@ -6,7 +6,7 @@ transparency)."""
 
 from datetime import datetime, timezone
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -104,6 +104,67 @@ class TaskItem(Base):
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     task: Mapped["Task"] = relationship(back_populates="items")
+
+
+class License(Base):
+    """A purchasable license key. Seats = how many devices may activate it.
+
+    Expiry is driven by the user's subscription (see Subscription); ``expires_at``
+    here is the offline fallback used when no active subscription exists."""
+
+    __tablename__ = "licenses"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    license_key: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    plan: Mapped[str] = mapped_column(String(32), default="basic")
+    seats: Mapped[int] = mapped_column(Integer, default=1)
+    status: Mapped[str] = mapped_column(String(16), default="active")  # active | suspended | revoked
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+
+    devices: Mapped[list["Device"]] = relationship(
+        back_populates="license", cascade="all, delete-orphan"
+    )
+
+
+class Device(Base):
+    """A machine bound to a license via a stable fingerprint (seat consumption)."""
+
+    __tablename__ = "devices"
+    __table_args__ = (UniqueConstraint("license_id", "fingerprint", name="uq_device_license_fp"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    license_id: Mapped[int] = mapped_column(
+        ForeignKey("licenses.id", ondelete="CASCADE"), index=True
+    )
+    fingerprint: Mapped[str] = mapped_column(String(128), index=True)
+    name: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+    last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    license: Mapped["License"] = relationship(back_populates="devices")
+
+
+class Subscription(Base):
+    """Billing state. ``current_period_end`` becomes the license file ``expiry``.
+
+    Renewal/cancellation webhooks from the payment provider update this row; the
+    next license activation picks up the new period end automatically."""
+
+    __tablename__ = "subscriptions"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    provider: Mapped[str] = mapped_column(String(24), default="mock")  # mock | lemonsqueezy | stripe | toss
+    provider_subscription_id: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
+    plan: Mapped[str] = mapped_column(String(32), default="basic")
+    status: Mapped[str] = mapped_column(String(16), default="active")  # active | canceled | past_due
+    current_period_end: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, onupdate=_utcnow
+    )
 
 
 class AuditLog(Base):

@@ -49,6 +49,16 @@
       <p>네이버 로그인 → 지점 자동 불러오기 → 이미지 일괄 등록</p>
     </header>
     <main>
+      <!-- 라이선스 -->
+      <section class="step" id="s0">
+        <h2>라이선스 <span id="licBadge" class="badge no">확인 중…</span></h2>
+        <div class="row">
+          <input type="text" id="licKey" placeholder="SPC-XXXX-XXXX-XXXX-XXXX" style="width:280px" />
+          <button class="btn-ghost" onclick="doActivate()">활성화</button>
+          <span id="licMsg" class="muted"></span>
+        </div>
+      </section>
+
       <!-- Step 1: 로그인 -->
       <section class="step" id="s1">
         <h2>1. 네이버 로그인 <span id="loginBadge" class="badge no">로그인 필요</span></h2>
@@ -123,7 +133,40 @@
         document.getElementById('menuBox').style.display = m === 'menu' ? 'block' : 'none';
       }
 
+      let licEnforced = false, licOk = false;
+
+      function renderLicense(s) {
+        licEnforced = !!s.enforced;
+        licOk = !!s.licensed;
+        const badge = document.getElementById('licBadge');
+        const msg = document.getElementById('licMsg');
+        if (s.licensed) {
+          badge.className = 'badge ok';
+          badge.textContent = '활성화됨' + (s.plan ? ' · ' + s.plan : '');
+          const exp = s.expiry ? new Date(s.expiry).toLocaleDateString('ko-KR') : '';
+          msg.textContent = exp ? '만료: ' + exp : '';
+        } else {
+          badge.className = 'badge no';
+          badge.textContent = licEnforced ? '활성화 필요' : '베타(선택)';
+          msg.innerHTML = s.reason ? '<span class="muted">' + s.reason + '</span>' : '';
+        }
+        // 강제 모드에서 미인증이면 이후 단계를 잠금.
+        if (licEnforced && !s.licensed) {
+          document.getElementById('s1').classList.add('disabled');
+        } else {
+          document.getElementById('s1').classList.remove('disabled');
+        }
+      }
+
+      async function doActivate() {
+        const key = document.getElementById('licKey').value.trim();
+        if (!key) { alert('라이선스 키를 입력하세요'); return; }
+        document.getElementById('licMsg').textContent = '확인 중…';
+        renderLicense(await api().activate_license(key));
+      }
+
       async function init() {
+        renderLicense(await api().license_status());
         const r = await api().has_session();
         if (r.ok) setLoggedIn();
       }
@@ -209,7 +252,8 @@
           if (!folder) { alert('이미지 폴더를 선택하세요'); return; }
           if (!confirm(seqs.length + '곳에 대표사진을 등록합니다. 계속할까요?')) return;
           startRunUI();
-          await api().apply(brand, seqs, folder);
+          const res = await api().apply(brand, seqs, folder);
+          if (res && res.error) window.onError(res.error);
         } else {
           if (!csvPath) { alert('메뉴 CSV를 선택하세요'); return; }
           const replace = document.getElementById('replaceChk').checked;
@@ -218,7 +262,8 @@
             : seqs.length + '곳에 표준 메뉴를 추가합니다. 계속할까요?';
           if (!confirm(msg)) return;
           startRunUI();
-          await api().apply_menu(brand, seqs, csvPath, menuImgDir || '', replace);
+          const res = await api().apply_menu(brand, seqs, csvPath, menuImgDir || '', replace);
+          if (res && res.error) window.onError(res.error);
         }
       }
 

@@ -124,3 +124,44 @@ class StatsRes(BaseModel):
     successRate: float
     pendingTasks: int
     users: int
+
+
+# ---- License / subscription -----------------------------------------------
+class LicenseCreateReq(BaseModel):
+    """Admin issues a license for a user (by email)."""
+
+    email: EmailStr
+    plan: str = "basic"
+    seats: int = Field(default=1, ge=1, le=100)
+    days: int | None = Field(default=None, ge=1)  # falls back to license_default_days
+
+
+class LicenseRes(BaseModel):
+    id: int
+    licenseKey: str
+    plan: str
+    seats: int
+    status: str
+    expiresAt: datetime
+    devicesUsed: int
+
+
+class LicenseActivateReq(BaseModel):
+    licenseKey: str
+    deviceFingerprint: str = Field(min_length=8, max_length=128)
+    deviceName: str | None = Field(default=None, max_length=120)
+
+
+class LicenseActivateRes(BaseModel):
+    licenseFile: str
+    expiry: datetime
+    plan: str
+    seats: int
+
+
+class SubscribeReq(BaseModel):
+    """Mock checkout — starts/renews a subscription for the given license owner."""
+
+    email: EmailStr
+    plan: str = "basic"
+    months: int = Field(default=1, ge=1, le=36)
