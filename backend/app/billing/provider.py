@@ -39,6 +39,30 @@ class MockProvider:
         return CheckoutResult(provider=self.name, provider_subscription_id=sub_id, current_period_end=end)
 
 
+class LemonSqueezyProvider:
+    """Real provider skeleton. The subscription becomes active via webhook
+    (routers/billing.py), so checkout here only needs to hand back a hosted
+    checkout URL. The actual API call needs the store/variant IDs from the
+    user's LemonSqueezy account — wire those before enabling.
+
+    Kept thin and config-driven on purpose; it is not exercised by tests because
+    it depends on a live account. Webhook signature/parse (the security-critical
+    path) lives in app/billing/lemonsqueezy.py and *is* tested."""
+
+    name = "lemonsqueezy"
+
+    def start_subscription(self, *, email: str, plan: str, months: int) -> CheckoutResult:
+        raise NotImplementedError(
+            "LemonSqueezy 체크아웃은 호스티드 결제 URL 흐름입니다. 스토어/variant ID 설정 후 "
+            "POST /v1/checkouts 를 호출해 결제 URL을 발급하고, 활성화는 webhook 으로 처리하세요."
+        )
+
+
 def get_provider() -> BillingProvider:
-    # Single switch point; later read settings.billing_provider and branch here.
+    # Single switch point. Import here to avoid a circular import at module load.
+    from app.core.config import get_settings
+
+    name = get_settings().billing_provider
+    if name == "lemonsqueezy":
+        return LemonSqueezyProvider()
     return MockProvider()

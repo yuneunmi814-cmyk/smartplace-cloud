@@ -69,6 +69,14 @@ class Settings(BaseSettings):
     # New licenses default to this many days when no subscription is attached.
     license_default_days: int = 365
 
+    # --- Billing provider ---
+    # "mock" (default, no external calls) | "lemonsqueezy" | "stripe" | "toss"
+    billing_provider: str = "mock"
+    # LemonSqueezy: webhook signing secret (verifies webhook authenticity) and
+    # API key (outbound checkout creation). Leave unset to keep the Mock flow.
+    lemonsqueezy_webhook_secret: str | None = None
+    lemonsqueezy_api_key: str | None = None
+
 
 @lru_cache
 def get_settings() -> Settings:
