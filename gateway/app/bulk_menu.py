@@ -31,6 +31,7 @@ def main() -> None:
 
     login_id, brand_seq, csv_path = sys.argv[1], sys.argv[2], sys.argv[3]
     replace = "--replace" in sys.argv
+    dry_run = "--dry-run" in sys.argv
     image_dir = _arg("--image-dir")
     diag = Path(__file__).resolve().parents[1] / "diag"
 
@@ -53,7 +54,8 @@ def main() -> None:
     if "--limit" in sys.argv:
         seqs = seqs[: int(_arg("--limit"))]
 
-    print(f"메뉴 {len(items)}개를 {len(seqs)}곳에 적용  |  교체모드={replace}")
+    mode = "🧪 DRY-RUN(저장 안 함)" if dry_run else ("교체(기존 삭제)" if replace else "추가")
+    print(f"메뉴 {len(items)}개를 {len(seqs)}곳에 적용  |  모드: {mode}")
     for it in items:
         print(f"   - {it['name']}  {it['price']}원" + ("  [대표]" if it["recommended"] else ""))
     try:
@@ -67,8 +69,9 @@ def main() -> None:
         label = names.get(seq, "")
         print(f"[{i}/{len(seqs)}] {label} ({seq}) ...", end=" ", flush=True)
         try:
-            res = apply_menu_set({"loginId": login_id}, seq, brand_seq, items, image_dir, replace)
-            print(f"✅ {res['added']}개")
+            res = apply_menu_set({"loginId": login_id}, seq, brand_seq, items,
+                                 image_dir, replace, dry_run)
+            print(f"✅ {res['added']}개" + (" (dry-run, 미저장)" if dry_run else ""))
             ok.append(seq)
         except Exception as exc:  # noqa: BLE001
             print(f"❌ {type(exc).__name__}: {str(exc)[:60]}")

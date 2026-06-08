@@ -36,22 +36,36 @@ class Api:
         result = window.create_file_dialog(webview.FOLDER_DIALOG)
         return {"folder": result[0] if result else None}
 
-    def apply(self, brand_seq: str, place_seqs: list, folder: str) -> dict:
+    def pick_csv(self) -> dict:
+        result = window.create_file_dialog(
+            webview.OPEN_DIALOG, file_types=("CSV 파일 (*.csv)", "모든 파일 (*.*)"))
+        return {"path": result[0] if result else None}
+
+    def _run_bg(self, fn):
         def run():
             def cb(done, total, ps, ok, err):
                 window.evaluate_js(
                     f"window.onProgress({done},{total},{json.dumps(ps)},"
                     f"{str(bool(ok)).lower()},{json.dumps(err or '')})"
                 )
-
             try:
-                res = automation.apply_bulk(brand_seq.strip(), [str(s) for s in place_seqs], folder, cb)
+                res = fn(cb)
                 window.evaluate_js(f"window.onDone({json.dumps(res)})")
             except Exception as exc:  # noqa: BLE001
                 window.evaluate_js(f"window.onError({json.dumps(str(exc))})")
-
         threading.Thread(target=run, daemon=True).start()
         return {"started": True}
+
+    def apply(self, brand_seq: str, place_seqs: list, folder: str) -> dict:
+        return self._run_bg(
+            lambda cb: automation.apply_bulk(brand_seq.strip(), [str(s) for s in place_seqs], folder, cb))
+
+    def apply_menu(self, brand_seq: str, place_seqs: list, csv_path: str,
+                   image_dir: str, replace: bool) -> dict:
+        return self._run_bg(
+            lambda cb: automation.apply_menu_bulk(
+                brand_seq.strip(), [str(s) for s in place_seqs],
+                csv_path, image_dir or None, bool(replace), cb))
 
 
 def main() -> None:

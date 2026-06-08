@@ -73,17 +73,34 @@
         <div class="list" id="branchList" style="display:none"></div>
       </section>
 
-      <!-- Step 3: 이미지 -->
+      <!-- Step 3: 작업 선택 -->
       <section class="step disabled" id="s3">
-        <h2>3. 이미지 폴더 선택</h2>
-        <button class="btn-ghost" onclick="pickFolder()">폴더 선택</button>
-        <span id="folder" class="folder"></span>
+        <h2>3. 작업 선택</h2>
+        <div class="row">
+          <label class="check"><input type="radio" name="mode" value="photo" checked onchange="setMode('photo')"> 대표사진 일괄</label>
+          <label class="check"><input type="radio" name="mode" value="menu" onchange="setMode('menu')"> 메뉴 일괄</label>
+        </div>
+        <div id="photoBox" style="margin-top:14px">
+          <button class="btn-ghost" onclick="pickFolder()">이미지 폴더 선택</button>
+          <span id="folder" class="folder"></span>
+        </div>
+        <div id="menuBox" style="margin-top:14px; display:none">
+          <button class="btn-ghost" onclick="pickCsv()">메뉴 CSV 선택</button>
+          <span id="csv" class="folder"></span>
+          <div style="margin-top:8px">
+            <button class="btn-ghost" onclick="pickMenuImg()">메뉴 이미지 폴더 (선택)</button>
+            <span id="menuImg" class="folder"></span>
+          </div>
+          <label class="check" style="margin-top:10px">
+            <input type="checkbox" id="replaceChk"> 기존 메뉴 삭제 후 통일(교체) ⚠️
+          </label>
+        </div>
       </section>
 
       <!-- Step 4: 실행 -->
       <section class="step disabled" id="s4">
-        <h2>4. 일괄 등록</h2>
-        <button class="btn" id="runBtn" onclick="doApply()">등록 실행</button>
+        <h2>4. 일괄 실행</h2>
+        <button class="btn" id="runBtn" onclick="doApply()">실행</button>
         <div class="progress" id="progWrap" style="display:none"><div id="progBar"></div></div>
         <div id="progText" class="muted"></div>
         <div class="log" id="log" style="display:none"></div>
@@ -93,7 +110,14 @@
     <script>
       let branches = [];
       let folder = null;
+      let mode = 'photo', csvPath = null, menuImgDir = null;
       const api = () => window.pywebview.api;
+
+      function setMode(m) {
+        mode = m;
+        document.getElementById('photoBox').style.display = m === 'photo' ? 'block' : 'none';
+        document.getElementById('menuBox').style.display = m === 'menu' ? 'block' : 'none';
+      }
 
       async function init() {
         const r = await api().has_session();
@@ -144,17 +168,48 @@
           document.getElementById('s4').classList.remove('disabled');
         }
       }
+      async function pickCsv() {
+        const r = await api().pick_csv();
+        if (r.path) {
+          csvPath = r.path;
+          document.getElementById('csv').textContent = '  ' + csvPath;
+          document.getElementById('s4').classList.remove('disabled');
+        }
+      }
+      async function pickMenuImg() {
+        const r = await api().pick_folder();
+        if (r.folder) {
+          menuImgDir = r.folder;
+          document.getElementById('menuImg').textContent = '  ' + menuImgDir;
+        }
+      }
 
-      async function doApply() {
-        const seqs = selected();
-        if (!seqs.length) { alert('지점을 선택하세요'); return; }
-        if (!folder) { alert('이미지 폴더를 선택하세요'); return; }
-        if (!confirm(seqs.length + '곳에 이미지를 등록합니다. 계속할까요?')) return;
+      function startRunUI() {
         document.getElementById('runBtn').disabled = true;
         document.getElementById('progWrap').style.display = 'block';
         document.getElementById('log').style.display = 'block';
         document.getElementById('log').innerHTML = '';
-        await api().apply(document.getElementById('brandSeq').value, seqs, folder);
+      }
+
+      async function doApply() {
+        const seqs = selected();
+        if (!seqs.length) { alert('지점을 선택하세요'); return; }
+        const brand = document.getElementById('brandSeq').value;
+        if (mode === 'photo') {
+          if (!folder) { alert('이미지 폴더를 선택하세요'); return; }
+          if (!confirm(seqs.length + '곳에 대표사진을 등록합니다. 계속할까요?')) return;
+          startRunUI();
+          await api().apply(brand, seqs, folder);
+        } else {
+          if (!csvPath) { alert('메뉴 CSV를 선택하세요'); return; }
+          const replace = document.getElementById('replaceChk').checked;
+          const msg = replace
+            ? seqs.length + '곳의 기존 메뉴를 삭제하고 표준 메뉴로 통일합니다. 계속할까요?'
+            : seqs.length + '곳에 표준 메뉴를 추가합니다. 계속할까요?';
+          if (!confirm(msg)) return;
+          startRunUI();
+          await api().apply_menu(brand, seqs, csvPath, menuImgDir || '', replace);
+        }
       }
 
       window.onProgress = (done, total, ps, ok, err) => {

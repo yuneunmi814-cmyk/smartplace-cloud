@@ -27,15 +27,21 @@ def _path(login_id: str) -> Path:
 class SessionStore:
     def get(self, login_id: str) -> str | None:
         path = _path(login_id)
-        if not path.exists():
-            return None
-        try:
-            data = json.loads(path.read_text())
-        except (ValueError, OSError):
-            return None
-        if time.time() - data.get("saved_at", 0) > settings.session_ttl_seconds:
-            return None
-        return json.dumps(data["state"])
+        if path.exists():
+            try:
+                data = json.loads(path.read_text())
+                if time.time() - data.get("saved_at", 0) <= settings.session_ttl_seconds:
+                    return json.dumps(data["state"])
+            except (ValueError, OSError):
+                pass
+        # Fallback: reuse the desktop app's login session (single-tenant).
+        desktop = Path.home() / ".smartplace_beta" / "session.json"
+        if desktop.exists():
+            try:
+                return desktop.read_text()
+            except OSError:
+                pass
+        return None
 
     def put(self, login_id: str, storage_state_json: str) -> None:
         path = _path(login_id)

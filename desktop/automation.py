@@ -8,6 +8,7 @@ and session never leave the device (Local-First), which sidesteps the
 datacenter-IP and credential-liability problems of a cloud SaaS.
 """
 
+import csv
 import json
 import re
 import time
@@ -239,3 +240,125 @@ def apply_bulk(brand_seq: str, place_seqs: list[str], folder: str, progress_cb) 
         SESSION_FILE.write_text(json.dumps(ctx.storage_state()))
         browser.close()
     return {"ok": ok_n, "fail": fail, "images": len(images)}
+
+
+# ---- menu apply (표준 메뉴 일괄) -------------------------------------------
+
+def parse_menu_csv(path: str) -> list[dict]:
+    items: list[dict] = []
+    with open(Path(path).expanduser(), newline="", encoding="utf-8-sig") as f:
+        for row in csv.DictReader(f):
+            name = (row.get("name") or row.get("메뉴명") or "").strip()
+            if not name:
+                continue
+            items.append({
+                "name": name,
+                "price": re.sub(r"[^0-9]", "", row.get("price") or row.get("가격") or ""),
+                "desc": (row.get("description") or row.get("설명") or "").strip()[:50],
+                "image": (row.get("image") or row.get("이미지") or "").strip(),
+                "recommended": (row.get("recommended") or row.get("대표") or "").strip().upper()
+                in ("Y", "YES", "TRUE", "1", "대표"),
+            })
+    return items
+
+
+def _menu_save(page) -> None:
+    btn = page.get_by_role("button", name="저장하기", exact=True)
+    if btn.count():
+        btn.first.click(timeout=6000)
+        page.wait_for_timeout(3000)
+
+
+def _menu_delete_all(page) -> None:
+    btn = page.locator("button:has-text('순서/삭제')").first
+    if btn.count():
+        btn.click(timeout=5000)
+        page.wait_for_timeout(1500)
+    for _ in range(250):
+        dels = page.locator("button[class*='btn_delete']")
+        if not dels.count():
+            dels = page.locator("button:has-text('삭제')")
+        if not dels.count():
+            break
+        try:
+            dels.first.click(timeout=4000)
+        except Exception:
+            break
+        page.wait_for_timeout(700)
+    _menu_save(page)
+    page.reload(wait_until="domcontentloaded")
+    page.wait_for_timeout(4000)
+    _dismiss_modal(page)
+
+
+def _menu_add_one(page, it: dict, image_dir: str | None) -> None:
+    page.locator("button:has-text('메뉴 추가')").first.click(timeout=8000)
+    page.wait_for_timeout(1500)
+    page.locator("input[name='name']").last.fill(it["name"])
+    if it["price"]:
+        page.locator("input[name='cost']").last.fill(it["price"])
+    if it["desc"]:
+        page.locator("textarea[name='desc']").last.fill(it["desc"])
+    if it["image"] and image_dir:
+        img = Path(image_dir).expanduser() / it["image"]
+        if img.exists():
+            page.locator("input[type=file]").last.set_input_files(str(img))
+            page.wait_for_timeout(1500)
+    if it["recommended"]:
+        try:
+            page.get_by_text("대표메뉴로 등록하기").last.click(timeout=2000)
+        except Exception:
+            pass
+    for label in ("추가하기", "수정", "확인"):
+        b = page.locator(f"button:has-text('{label}')").last
+        if b.count():
+            b.click(timeout=6000)
+            break
+    page.wait_for_timeout(1500)
+
+
+def _apply_menu_one(ctx, brand_seq, place_seq, items, image_dir, replace) -> None:
+    page = ctx.new_page()
+    try:
+        page.goto(
+            f"{SMARTPLACE}/brand/biz-edit?brandSeq={brand_seq}&detail=biz-edit&menu=price&placeSeq={place_seq}",
+            wait_until="domcontentloaded")
+        page.wait_for_timeout(5000)
+        _dismiss_modal(page)
+        if replace:
+            _menu_delete_all(page)
+        for it in items:
+            _menu_add_one(page, it, image_dir)
+        _menu_save(page)
+    finally:
+        page.close()
+
+
+def apply_menu_bulk(brand_seq, place_seqs, csv_path, image_dir, replace, progress_cb) -> dict:
+    """표준 메뉴(CSV)를 각 placeSeq에 적용. replace=True면 기존 메뉴 삭제 후 적용."""
+    items = parse_menu_csv(csv_path)
+    if not items:
+        raise RuntimeError("CSV에 메뉴가 없습니다")
+
+    ok_n = 0
+    fail = []
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True, args=["--disable-blink-features=AutomationControlled"])
+        ctx = _new_context(p, browser)
+        if not (set(AUTH_COOKIES) & {c["name"] for c in ctx.cookies()}):
+            browser.close()
+            raise RuntimeError("세션이 만료되었습니다. 다시 로그인하세요.")
+        total = len(place_seqs)
+        for i, ps in enumerate(place_seqs, 1):
+            err = None
+            try:
+                _apply_menu_one(ctx, brand_seq, ps, items, image_dir, replace)
+                ok_n += 1
+            except Exception as exc:  # noqa: BLE001
+                err = str(exc)
+                fail.append(ps)
+            progress_cb(i, total, ps, err is None, err)
+            time.sleep(4)
+        SESSION_FILE.write_text(json.dumps(ctx.storage_state()))
+        browser.close()
+    return {"ok": ok_n, "fail": fail, "menus": len(items)}

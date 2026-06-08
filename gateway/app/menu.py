@@ -45,8 +45,10 @@ def parse_menu_csv(path: str) -> list[dict]:
 
 
 def apply_menu_set(credential: dict, place_seq: str, brand_seq: str, items: list[dict],
-                   image_dir: str | None = None, replace: bool = False) -> dict:
-    """한 지점에 메뉴 세트를 적용. replace=True면 기존 메뉴 전부 삭제 후 추가."""
+                   image_dir: str | None = None, replace: bool = False,
+                   dry_run: bool = False) -> dict:
+    """한 지점에 메뉴 세트를 적용. replace=True면 기존 메뉴 전부 삭제 후 추가.
+    dry_run=True면 폼 입력만 하고 취소(저장 안 함) — 실제 변화 없이 안전 테스트."""
     if settings.mock:
         return {"added": len(items)}
     login_id = credential.get("loginId")
@@ -71,21 +73,22 @@ def apply_menu_set(credential: dict, place_seq: str, brand_seq: str, items: list
             page.wait_for_timeout(5000)
             _dismiss_group_modal(page)
 
-            if replace:
+            if replace and not dry_run:
                 _delete_all_menus(page)
 
             added = 0
             for it in items:
-                _add_one_menu(page, it, image_dir)
+                _add_one_menu(page, it, image_dir, dry_run=dry_run)
                 added += 1
-            _save_menu(page)
+            if not dry_run:
+                _save_menu(page)
             store.put(login_id, json.dumps(ctx.storage_state()))
-            return {"added": added}
+            return {"added": added, "dry_run": dry_run}
         finally:
             browser.close()
 
 
-def _add_one_menu(page, it: dict, image_dir: str | None) -> None:
+def _add_one_menu(page, it: dict, image_dir: str | None, dry_run: bool = False) -> None:
     page.locator("button:has-text('메뉴 추가')").first.click(timeout=8000)
     page.wait_for_timeout(1500)
     # The open form's fields are the most recently rendered ones (.last).
@@ -104,7 +107,19 @@ def _add_one_menu(page, it: dict, image_dir: str | None) -> None:
             page.get_by_text("대표메뉴로 등록하기").last.click(timeout=2000)
         except Exception:
             pass
-    page.locator("button:has-text('추가하기')").last.click(timeout=6000)
+    if dry_run:
+        # 저장하지 않고 취소 — 실제 변화 없이 입력만 검증.
+        cancel = page.locator("button:has-text('취소')").last
+        if cancel.count():
+            cancel.click(timeout=4000)
+        page.wait_for_timeout(800)
+        return
+    # 신규 추가는 '추가하기', 기존 편집은 '수정' 버튼. 둘 다 대응.
+    for label in ("추가하기", "수정", "확인"):
+        btn = page.locator(f"button:has-text('{label}')").last
+        if btn.count():
+            btn.click(timeout=6000)
+            break
     page.wait_for_timeout(1500)
 
 
