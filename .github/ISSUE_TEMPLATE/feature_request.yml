@@ -1,0 +1,43 @@
+name: ✨ 기능 제안 (Feature request)
+description: 새 기능이나 개선 아이디어를 제안해 주세요 / Suggest a feature or improvement
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        아이디어 감사합니다 💡 큰 변경은 구현 전에 여기서 먼저 상의하면 헛수고를 줄일 수 있어요.
+        _Thanks! For larger changes, discussing here first saves wasted effort._
+  - type: textarea
+    id: problem
+    attributes:
+      label: 어떤 문제를 풀고 싶나요? (What problem?)
+      description: 불편한 점이나 상황을 먼저 알려주세요 / describe the pain point, not just the solution
+      placeholder: "예: 메뉴를 일괄 등록할 때 지점마다 다른 가격을 적용하고 싶다"
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: 제안하는 방법 (Proposed solution)
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: 관련 영역 (Area)
+      options:
+        - desktop (데스크톱 앱)
+        - backend (FastAPI)
+        - gateway (CLI 자동화)
+        - web (관리 콘솔)
+        - 문서/번역 (docs/i18n)
+        - 기타 (other)
+    validations:
+      required: false
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: 확인 (Confirm)
+      options:
+        - label: 본인이 소유·관리하는 매장 운영을 돕는 범위입니다 (네이버 약관 위반·봇 회피 강화 아님) / Within scope — helps operate stores I own, not ToS evasion
+          required: true
