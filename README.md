@@ -108,5 +108,8 @@ web/       React 관리 콘솔(이미지·배포·라이선스 관리)
 ```
 빌드: `.github/workflows/build-windows-exe.yml` (GitHub Actions에서 Windows .exe 자동 빌드)
 
+## 기여
+PR·이슈·문서·번역 모두 환영합니다 🙌 시작 전에 **[기여 가이드(CONTRIBUTING.md)](CONTRIBUTING.md)** 를 봐주세요 — 첫 PR이 막히지 않게 안내합니다.
+
 ## 라이선스
 MIT License — 단, [면책 고지](DISCLAIMER.md)의 사용 제한을 따르세요.
