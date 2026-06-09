@@ -110,5 +110,8 @@ web/       React admin console (images, dispatch, license management)
 ```
 Build: `.github/workflows/build-windows-exe.yml` (auto-builds the Windows `.exe` via GitHub Actions).
 
+## Contributing
+PRs, issues, docs, and translations are all welcome 🙌 Please read the **[Contributing guide](CONTRIBUTING.md)** first — it's written to get your first PR merged smoothly.
+
 ## License
 MIT License — subject to the usage limits in the [DISCLAIMER](DISCLAIMER.md).
