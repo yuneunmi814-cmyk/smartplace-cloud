@@ -24,6 +24,10 @@
 
 **고객 PC에서 고객 네이버로 실행** → 로그인 정보가 PC를 떠나지 않습니다 (Local-First).
 
+> 🚀 **어떻게 시작하나요?**
+> · 그냥 **쓰고 싶다** → 아래 [다운로드 & 설치](#다운로드--설치) (설치 불필요, 더블클릭)
+> · **코드를 직접 돌려보거나 기여하고 싶다** → [⚡ 소스에서 5분 실행](#-소스에서-5분-실행-개발자기여자용)
+
 ## 다운로드 & 설치
 [**▶ 최신 버전 다운로드 (Releases)**](../../releases/latest)
 
@@ -55,13 +59,52 @@ name,price,description,image,recommended
 
 ---
 
-## 개발자용 (구성)
-모노레포 구성 — 자세한 기술 문서는 각 폴더 README 참고:
+## ⚡ 소스에서 5분 실행 (개발자·기여자용)
+
+> 완성된 앱만 쓸 거면 위 [다운로드 & 설치](#다운로드--설치)로 충분합니다.
+> 코드를 직접 돌려보거나 기여하려면 아래 3단계면 됩니다.
+
+**전제**: Python 3.12+ 하나면 됩니다. (데스크톱 앱만 띄울 거라 Node·DB·클라우드 불필요)
+
+**① 클론**
+```bash
+git clone https://github.com/yuneunmi814-cmyk/smartplace-cloud.git
+cd smartplace-cloud/desktop
 ```
-desktop/   데스크톱 앱(pywebview + Playwright) — 배포되는 실행파일
+
+**② 실행** — 둘 중 편한 방법으로:
+
+- 🖱️ **가장 쉬움**: 파일 탐색기에서 **`run.command`(Mac)** 또는 **`run.bat`(Windows)** 더블클릭 → 처음엔 자동으로 설치하고 앱이 뜹니다.
+- ⌨️ **터미널로**:
+  ```bash
+  python3 -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
+  pip install -r requirements.txt
+  playwright install chromium                          # 한 번만 (가장 오래 걸리는 단계)
+  python app.py
+  ```
+
+**③ 앱 창이 뜨면 성공!** 🎉 4단계 화면(로그인 → 지점 → 작업 → 실행)이 보입니다.
+
+> 실제 등록을 해보려면 **본인 네이버 계정으로 로그인**하고 본인이 관리하는 브랜드 번호가 필요합니다.
+> (로그인 정보는 PC를 떠나지 않습니다. 처음엔 **꼭 한 지점만** 테스트하세요.)
+
+<details>
+<summary>잘 안 될 때</summary>
+
+- `python3` 없음 → [python.org](https://www.python.org/downloads/)에서 3.12+ 설치 (Windows는 설치 시 "Add to PATH" 체크)
+- `playwright install` 멈춤 → 네트워크 문제. Chromium(약 150MB) 다운로드라 와이파이가 느리면 5분을 넘길 수 있어요. 다시 실행하면 이어받습니다.
+- macOS에서 `run.command`가 "확인되지 않은 개발자" → 우클릭 → "열기" 한 번.
+</details>
+
+### 전체 스택(클라우드)까지 돌려보려면
+백엔드(FastAPI) + 웹 콘솔(React) + 게이트웨이까지 띄우는 방법은 **[HANDOFF.md](HANDOFF.md)** 에 단계별로 있습니다.
+
+### 저장소 구성
+```
+desktop/   데스크톱 앱(pywebview + Playwright) — 배포되는 실행파일 ← 위 퀵스타트 대상
 gateway/   CLI 자동화 도구(일괄 사진/메뉴, 브랜드 스크랩)
-backend/   FastAPI 백엔드(다계정·작업 큐·S3·라이선스/구독)
-web/       React 관리 콘솔
+backend/   FastAPI 백엔드(다계정·작업 큐·S3·라이선스/구독) + 테스트
+web/       React 관리 콘솔(이미지·배포·라이선스 관리)
 ```
 빌드: `.github/workflows/build-windows-exe.yml` (GitHub Actions에서 Windows .exe 자동 빌드)
 

@@ -26,6 +26,10 @@ For a franchise with tens to hundreds of branches, work that used to be done **o
 
 **Runs on the customer's PC with the customer's Naver account** → credentials never leave the machine (local-first).
 
+> 🚀 **Where do I start?**
+> · I just want to **use it** → [Download & install](#download--install) below (no setup, double-click)
+> · I want to **run the code or contribute** → [⚡ Run from source in 5 minutes](#-run-from-source-in-5-minutes-for-developers--contributors)
+
 ## Download & install
 [**▶ Download the latest version (Releases)**](../../releases/latest)
 
@@ -57,13 +61,52 @@ Crispy Pajeon,6900,Crispy savory pancake,pajeon.jpg,Y
 
 ---
 
-## For developers (structure)
-Monorepo layout — see each folder's README for technical details:
+## ⚡ Run from source in 5 minutes (for developers & contributors)
+
+> If you only want the finished app, the [Download & install](#download--install) section above is enough.
+> To run the code or contribute, these 3 steps are all you need.
+
+**Prerequisite**: Python 3.12+ only. (We just launch the desktop app — no Node, DB, or cloud needed.)
+
+**① Clone**
+```bash
+git clone https://github.com/yuneunmi814-cmyk/smartplace-cloud.git
+cd smartplace-cloud/desktop
 ```
-desktop/   Desktop app (pywebview + Playwright) — the shipped executable
+
+**② Run** — whichever is easier:
+
+- 🖱️ **Easiest**: double-click **`run.command` (Mac)** or **`run.bat` (Windows)** in your file explorer → it auto-installs the first time and launches the app.
+- ⌨️ **Terminal**:
+  ```bash
+  python3 -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
+  pip install -r requirements.txt
+  playwright install chromium                          # one-time (the slowest step)
+  python app.py
+  ```
+
+**③ The app window opens — you're set!** 🎉 You'll see the 4-step screen (login → branches → task → run).
+
+> To actually post listings you need to **log in with your own Naver account** and a brand you manage.
+> (Credentials never leave your PC. The first time, **test with just one branch**.)
+
+<details>
+<summary>Troubleshooting</summary>
+
+- No `python3` → install 3.12+ from [python.org](https://www.python.org/downloads/) (on Windows, check "Add to PATH" during install).
+- `playwright install` hangs → network. It downloads Chromium (~150 MB), so a slow connection can exceed 5 minutes. Re-run to resume.
+- macOS `run.command` says "unidentified developer" → right-click → "Open" once.
+</details>
+
+### Running the full cloud stack
+Bringing up the backend (FastAPI) + web console (React) + gateway is documented step by step in **[HANDOFF.md](HANDOFF.md)** (Korean).
+
+### Repository layout
+```
+desktop/   Desktop app (pywebview + Playwright) — the shipped executable ← the quickstart above
 gateway/   CLI automation tools (bulk photo/menu, brand scraping)
-backend/   FastAPI backend (multi-account, task queue, S3, license/subscription)
-web/       React admin console
+backend/   FastAPI backend (multi-account, task queue, S3, license/subscription) + tests
+web/       React admin console (images, dispatch, license management)
 ```
 Build: `.github/workflows/build-windows-exe.yml` (auto-builds the Windows `.exe` via GitHub Actions).
 
