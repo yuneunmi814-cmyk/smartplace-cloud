@@ -208,7 +208,14 @@ def _upload_input_image(page, image_paths) -> None:
     page.reload(wait_until="domcontentloaded")
     page.wait_for_timeout(4000)
     final = _details_count(page)
-    if final is not None and final < target:
+    # An UNREADABLE count means we could NOT confirm the save — treat as failure,
+    # never silently succeed. (Skipping this when final was None let broken
+    # selectors / silent save failures pass as success.)
+    if final is None:
+        raise GatewayError(
+            "저장 확인 실패: 저장 후 사진 개수를 읽지 못했습니다. 네이버 화면 구조가 바뀌었을 수 있습니다."
+        )
+    if final < target:
         raise GatewayError(f"저장이 반영되지 않았습니다 (목표 {target}, 실제 {final}). 재시도 필요.")
 
 

@@ -21,6 +21,7 @@ BOOKING = "https://partner.booking.naver.com"
 NAVER_LOGIN = "https://nid.naver.com/nidlogin.login"
 AUTH_COOKIES = ("NID_AUT", "NID_SES")
 SESSION_FILE = Path.home() / ".smartplace_beta" / "session.json"
+DEBUG_DIR = Path.home() / ".smartplace_beta" / "debug"
 DATE_RE = re.compile(r"/(20\d{6})_")
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp"}
 
@@ -168,6 +169,35 @@ def _photo_count(page):
     return None
 
 
+def _debug_dump(page, tag: str) -> str | None:
+    """Save a full-page screenshot so a remote user can show exactly what Naver
+    rendered when verification failed. Returns the path, or None if it couldn't."""
+    try:
+        DEBUG_DIR.mkdir(parents=True, exist_ok=True)
+        shot = DEBUG_DIR / f"{tag}.png"
+        page.screenshot(path=str(shot), full_page=True)
+        return str(shot)
+    except Exception:
+        return None
+
+
+def _photo_verdict(final: int | None, target: int, saved: bool) -> str | None:
+    """Pure decision for whether a photo apply actually succeeded.
+
+    Returns an error message if the upload could NOT be positively confirmed, or
+    None if verified. Key rule: an UNREADABLE count (``final is None``) is a
+    FAILURE, never a success — that was the original false-"성공" bug."""
+    if final is None:
+        return (
+            "업로드 확인 실패: 저장 후 사진 개수를 읽지 못했습니다. "
+            "네이버 화면 구조가 바뀌었을 수 있어요."
+        )
+    if final < target:
+        hint = "" if saved else " '저장하기' 버튼을 찾지 못했습니다(저장 안 됨)."
+        return f"저장 미반영 (목표 {target}장, 실제 {final}장).{hint}"
+    return None
+
+
 def _apply_one(ctx, brand_seq: str, place_seq: str, image_paths: list[str]) -> None:
     page = ctx.new_page()
     try:
@@ -197,16 +227,25 @@ def _apply_one(ctx, brand_seq: str, place_seq: str, image_paths: list[str]) -> N
                 btn.first.click(timeout=3000)
                 page.wait_for_timeout(2000)
                 break
+        saved = False
         sv = page.get_by_role("button", name="저장하기", exact=True)
         if sv.count():
             sv.first.click(timeout=5000)
             page.wait_for_timeout(3000)
+            saved = True
 
         page.reload(wait_until="domcontentloaded")
         page.wait_for_timeout(4000)
         final = _photo_count(page)
-        if final is not None and final < target:
-            raise RuntimeError(f"저장 미반영 (목표 {target}, 실제 {final})")
+
+        # Only count this place as a success if the saved photo count actually
+        # went up. An unreadable count = we could not confirm = FAILURE.
+        # (Previously the check was skipped when final was None, so a broken
+        # selector or a silent save failure was wrongly reported as "성공".)
+        msg = _photo_verdict(final, target, saved)
+        if msg:
+            shot = _debug_dump(page, f"photo_{place_seq}_{int(time.time())}")
+            raise RuntimeError(msg + (f" (진단 화면 저장됨: {shot})" if shot else ""))
     finally:
         page.close()
 
@@ -262,11 +301,15 @@ def parse_menu_csv(path: str) -> list[dict]:
     return items
 
 
-def _menu_save(page) -> None:
+def _menu_save(page) -> bool:
+    """Click 저장하기. Returns True only if the save button was actually found
+    and clicked — callers use this to avoid reporting an unsaved run as success."""
     btn = page.get_by_role("button", name="저장하기", exact=True)
     if btn.count():
         btn.first.click(timeout=6000)
         page.wait_for_timeout(3000)
+        return True
+    return False
 
 
 def _menu_delete_all(page) -> None:
@@ -309,11 +352,15 @@ def _menu_add_one(page, it: dict, image_dir: str | None) -> None:
             page.get_by_text("대표메뉴로 등록하기").last.click(timeout=2000)
         except Exception:
             pass
+    confirmed = False
     for label in ("추가하기", "수정", "확인"):
         b = page.locator(f"button:has-text('{label}')").last
         if b.count():
             b.click(timeout=6000)
+            confirmed = True
             break
+    if not confirmed:
+        raise RuntimeError(f"메뉴 '{it['name']}' 추가(확인) 버튼을 찾지 못했습니다 — 화면 구조가 바뀌었을 수 있어요.")
     page.wait_for_timeout(1500)
 
 
@@ -329,7 +376,12 @@ def _apply_menu_one(ctx, brand_seq, place_seq, items, image_dir, replace) -> Non
             _menu_delete_all(page)
         for it in items:
             _menu_add_one(page, it, image_dir)
-        _menu_save(page)
+        if not _menu_save(page):
+            shot = _debug_dump(page, f"menu_{place_seq}_{int(time.time())}")
+            raise RuntimeError(
+                "저장 실패: '저장하기' 버튼을 찾지 못했습니다(저장 안 됨)."
+                + (f" (진단 화면 저장됨: {shot})" if shot else "")
+            )
     finally:
         page.close()
 
