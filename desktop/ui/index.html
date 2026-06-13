@@ -90,6 +90,7 @@
           <label class="check"><input type="radio" name="mode" value="photo" checked onchange="setMode('photo')"> 대표사진 일괄</label>
           <label class="check"><input type="radio" name="mode" value="menu" onchange="setMode('menu')"> 메뉴 일괄</label>
           <label class="check"><input type="radio" name="mode" value="report" onchange="setMode('report')"> 📊 리포트 수집(베타)</label>
+          <label class="check"><input type="radio" name="mode" value="review" onchange="setMode('review')"> 💬 리뷰 수집(베타)</label>
         </div>
         <div id="photoBox" style="margin-top:14px">
           <button class="btn-ghost" onclick="pickFolder()">이미지 폴더 선택</button>
@@ -114,6 +115,10 @@
           <p class="muted" style="margin:0">선택한 지점의 <b>방문·조회·리뷰·예약수</b>를 모아 CSV로 저장합니다.
           <b>읽기 전용</b>이라 매장 정보는 바뀌지 않아요. (베타: 읽지 못한 지표는 빈 칸으로 표시)</p>
         </div>
+        <div id="reviewBox" style="margin-top:14px; display:none">
+          <p class="muted" style="margin:0">선택한 지점의 <b>리뷰(작성자·별점·내용·작성일)</b>를 한곳에 모아 CSV로 저장합니다.
+          <b>읽기 전용</b>이라 매장 정보는 바뀌지 않아요. (베타: 읽지 못한 지점은 '읽기 실패'로 표시)</p>
+        </div>
       </section>
 
       <!-- Step 4: 실행 -->
@@ -130,7 +135,7 @@
       let branches = [];
       let folder = null;
       let mode = 'photo', csvPath = null, menuImgDir = null;
-      let reportRows = null;
+      let reportRows = null, reviewRows = null;
       const api = () => window.pywebview.api;
 
       function setMode(m) {
@@ -138,8 +143,9 @@
         document.getElementById('photoBox').style.display = m === 'photo' ? 'block' : 'none';
         document.getElementById('menuBox').style.display = m === 'menu' ? 'block' : 'none';
         document.getElementById('reportBox').style.display = m === 'report' ? 'block' : 'none';
-        // 리포트는 폴더/CSV 선택이 필요 없으니 지점만 있으면 바로 실행 가능.
-        if (m === 'report') document.getElementById('s4').classList.remove('disabled');
+        document.getElementById('reviewBox').style.display = m === 'review' ? 'block' : 'none';
+        // 리포트·리뷰는 폴더/CSV 선택이 필요 없으니 지점만 있으면 바로 실행 가능.
+        if (m === 'report' || m === 'review') document.getElementById('s4').classList.remove('disabled');
       }
 
       let licEnforced = false, licOk = false;
@@ -266,6 +272,13 @@
           if (res && res.error) window.onError(res.error);
           return;
         }
+        if (mode === 'review') {
+          reviewRows = null;
+          startRunUI();
+          const res = await api().collect_reviews(brand, seqs);
+          if (res && res.error) window.onError(res.error);
+          return;
+        }
         if (mode === 'photo') {
           if (!folder) { alert('이미지 폴더를 선택하세요'); return; }
           if (!confirm(seqs.length + '곳에 대표사진을 등록합니다. 계속할까요?')) return;
@@ -318,6 +331,23 @@
       async function saveReport() {
         if (!reportRows || !reportRows.length) { alert('저장할 데이터가 없습니다'); return; }
         const r = await api().save_report_csv(reportRows);
+        if (r.saved) alert('CSV로 저장했어요:\n' + r.saved);
+      }
+      window.onReviewDone = (res) => {
+        document.getElementById('runBtn').disabled = false;
+        reviewRows = res.rows || [];
+        const s = res.summary || { 리뷰수: 0, 지점수: 0, 읽기실패: 0, 평균별점: null };
+        const avg = (s.평균별점 === null || s.평균별점 === undefined) ? '-' : ('★' + s.평균별점);
+        document.getElementById('progText').innerHTML =
+          `<b>수집 완료!</b> 리뷰 ${s.리뷰수}건 / ${s.지점수}곳 (읽기 실패 ${s.읽기실패}곳) · 평균 ${avg}<br>` +
+          (reviewRows.length
+            ? `<button class="btn" style="margin-top:10px" onclick="saveReviews()">📥 CSV로 저장</button>`
+            : `<div class="error" style="margin-top:8px">리뷰를 읽지 못했습니다. ` +
+              `<code>~/.smartplace_beta/reviews_debug/</code> 의 파일을 개발자에게 보내주시면 맞춰 고칠 수 있어요.</div>`);
+      };
+      async function saveReviews() {
+        if (!reviewRows || !reviewRows.length) { alert('저장할 리뷰가 없습니다'); return; }
+        const r = await api().save_reviews_csv(reviewRows);
         if (r.saved) alert('CSV로 저장했어요:\n' + r.saved);
       }
       window.onError = (msg) => {

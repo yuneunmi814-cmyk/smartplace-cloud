@@ -17,6 +17,7 @@ from pathlib import Path
 from playwright.sync_api import sync_playwright
 
 import reports
+import reviews
 
 SMARTPLACE = "https://new.smartplace.naver.com"
 BOOKING = "https://partner.booking.naver.com"
@@ -25,6 +26,7 @@ AUTH_COOKIES = ("NID_AUT", "NID_SES")
 SESSION_FILE = Path.home() / ".smartplace_beta" / "session.json"
 DEBUG_DIR = Path.home() / ".smartplace_beta" / "debug"
 REPORTS_DEBUG_DIR = Path.home() / ".smartplace_beta" / "reports_debug"
+REVIEWS_DEBUG_DIR = Path.home() / ".smartplace_beta" / "reviews_debug"
 DATE_RE = re.compile(r"/(20\d{6})_")
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp"}
 
@@ -516,3 +518,89 @@ def collect_reports(brand_seq: str, place_seqs: list[str], progress_cb) -> dict:
         SESSION_FILE.write_text(json.dumps(ctx.storage_state()))
         browser.close()
     return {"rows": rows, "summary": reports.summarize(rows)}
+
+
+# ---- branch reviews (전 지점 리뷰 수집, 읽기 전용) -------------------------
+#
+# ⚠️ 통계와 동일: 리뷰 페이지의 정확한 URL/JSON 필드는 실계정 1회 수집으로 확인.
+# 못 읽으면 가짜 데이터 대신 '읽기 실패'로 보고하고 reviews_debug에 원본 덤프.
+
+REVIEW_URL_CANDIDATES = (
+    "https://new.smartplace.naver.com/bizes/place/{ps}/reviews",
+    "https://new.smartplace.naver.com/brand/review?brandSeq={bs}&placeSeq={ps}",
+)
+
+
+def _dump_reviews_debug(page, place_seq: str, captured: list[dict]) -> str | None:
+    try:
+        REVIEWS_DEBUG_DIR.mkdir(parents=True, exist_ok=True)
+        stem = REVIEWS_DEBUG_DIR / f"review_{place_seq}_{int(time.time())}"
+        stem.with_suffix(".json").write_text(
+            json.dumps(captured, ensure_ascii=False)[:500000], encoding="utf-8")
+        page.screenshot(path=str(stem.with_suffix(".png")), full_page=True)
+        return str(stem.with_suffix(".json"))
+    except Exception:
+        return None
+
+
+def _collect_reviews_one(ctx, brand_seq: str, place_seq: str) -> tuple[list[dict], bool]:
+    """Returns (reviews, captured_any). captured_any=False면 '읽기 실패'."""
+    page = ctx.new_page()
+    captured = _capture_json(page)
+    try:
+        for tpl in REVIEW_URL_CANDIDATES:
+            try:
+                page.goto(tpl.format(ps=place_seq, bs=brand_seq), wait_until="domcontentloaded")
+            except Exception:
+                continue
+            page.wait_for_timeout(4500)
+            _dismiss_modal(page)
+            # 리뷰는 스크롤로 더 불러오는 경우가 많아 살짝 내려준다.
+            try:
+                page.mouse.wheel(0, 3000)
+                page.wait_for_timeout(2000)
+            except Exception:
+                pass
+            if any(captured):
+                break
+        try:
+            name = page.title() or ""
+        except Exception:
+            name = ""
+        found = reviews.extract_reviews(list(captured))
+        if not found and not any(captured):
+            _dump_reviews_debug(page, place_seq, list(captured))
+        return reviews.build_rows(name, place_seq, found), bool(any(captured))
+    finally:
+        page.close()
+
+
+def collect_reviews(brand_seq: str, place_seqs: list[str], progress_cb) -> dict:
+    """각 지점의 리뷰를 모은다(읽기 전용). 반환: {rows, summary}.
+    통계를 못 읽은 지점은 '읽기 실패'로 집계(가짜 데이터 금지)."""
+    rows: list[dict] = []
+    failed = 0
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True, args=["--disable-blink-features=AutomationControlled"])
+        ctx = _new_context(p, browser)
+        if not (set(AUTH_COOKIES) & {c["name"] for c in ctx.cookies()}):
+            browser.close()
+            raise RuntimeError("세션이 만료되었습니다. 다시 로그인하세요.")
+        total = len(place_seqs)
+        for i, ps in enumerate(place_seqs, 1):
+            err = None
+            captured_any = False
+            try:
+                got, captured_any = _collect_reviews_one(ctx, brand_seq, ps)
+                rows.extend(got)
+            except Exception as exc:  # noqa: BLE001
+                err = str(exc)
+            if not captured_any and err is None:
+                err = "리뷰를 읽지 못함"
+            if err:
+                failed += 1
+            progress_cb(i, total, ps, err is None, err or "")
+            time.sleep(2)
+        SESSION_FILE.write_text(json.dumps(ctx.storage_state()))
+        browser.close()
+    return {"rows": rows, "summary": reviews.summarize(rows, len(place_seqs), failed)}
