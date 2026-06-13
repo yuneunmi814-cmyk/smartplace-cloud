@@ -130,6 +130,23 @@ class Api:
         Path(path).write_text(reports.to_csv(rows or []), encoding="utf-8-sig")
         return {"saved": path}
 
+    def collect_reviews(self, brand_seq: str, place_seqs: list) -> dict:
+        """전 지점 리뷰 수집(읽기 전용). 결과는 window.onReviewDone 으로."""
+        if not self._licensed():
+            return {"error": "라이선스가 필요합니다. 상단에서 라이선스 키를 활성화하세요."}
+        return self._run_bg(
+            lambda cb: automation.collect_reviews(brand_seq.strip(), [str(s) for s in place_seqs], cb),
+            done="onReviewDone")
+
+    def save_reviews_csv(self, rows: list) -> dict:
+        import reviews
+        dest = window.create_file_dialog(webview.SAVE_DIALOG, save_filename="전지점_리뷰.csv")
+        if not dest:
+            return {"saved": None}
+        path = dest if isinstance(dest, str) else dest[0]
+        Path(path).write_text(reviews.to_csv(rows or []), encoding="utf-8-sig")
+        return {"saved": path}
+
 
 def main() -> None:
     global window
