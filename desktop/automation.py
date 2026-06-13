@@ -116,18 +116,23 @@ def scrape_branches(brand_seq: str) -> list[dict]:
         def scrape():
             links = page.eval_on_selector_all(
                 "a[href*='biz-edit'], a[href*='placeSeq']",
+                # Brand-agnostic: take the link's row container (any franchise),
+                # not a brand-name match. placeSeq drives everything; the name is
+                # just the row's first line.
                 """els => els.map(a => {
                     const href = a.getAttribute('href') || '';
-                    let row = a.closest('tr') || a.closest('[role=row]') || a.closest('li');
-                    if (!row) { let q=a; for(let i=0;i<8;i++){ q=q&&q.parentElement; if(q&&(q.innerText||'').includes('대포')){row=q;break;} } }
+                    const row = a.closest('tr') || a.closest('[role=row]') || a.closest('li') || a.parentElement;
                     return { href, text: row ? (row.innerText||'').trim() : '' };
                 })""",
             )
             for link in links:
                 m = re.search(r"placeSeq=(\d+)", link.get("href") or "")
                 if m:
-                    nm = re.search(r"\S*대포[^\n\t]*", link.get("text") or "")
-                    out.setdefault(m.group(1), nm.group(0).strip() if nm else "")
+                    # First non-empty line of the row is the store name (works for
+                    # any brand). If blank, the UI falls back to "지점 <placeSeq>".
+                    text = (link.get("text") or "").strip()
+                    name = next((ln.strip() for ln in text.splitlines() if ln.strip()), "")
+                    out.setdefault(m.group(1), name)
 
         page_no = 1
         while page_no <= 30:

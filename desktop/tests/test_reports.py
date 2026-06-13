@@ -31,11 +31,11 @@ def test_extract_ignores_nonnumeric():
 
 # ---- row + status honesty --------------------------------------------------
 def test_row_status_reflects_read_success():
-    full = build_row("79대포 강남", "111", {"방문수": 1, "조회수": 2, "리뷰수": 3, "예약수": 4})
+    full = build_row("브랜드 강남점", "111", {"방문수": 1, "조회수": 2, "리뷰수": 3, "예약수": 4})
     assert full["수집상태"] == "정상"
-    partial = build_row("79대포 홍대", "222", {"방문수": 1, "조회수": None, "리뷰수": None, "예약수": None})
+    partial = build_row("브랜드 홍대점", "222", {"방문수": 1, "조회수": None, "리뷰수": None, "예약수": None})
     assert partial["수집상태"] == "일부"
-    none = build_row("79대포 부산", "333", {"방문수": None, "조회수": None, "리뷰수": None, "예약수": None})
+    none = build_row("브랜드 부산점", "333", {"방문수": None, "조회수": None, "리뷰수": None, "예약수": None})
     assert none["수집상태"] == "읽기 실패"
 
 

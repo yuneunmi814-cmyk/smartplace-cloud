@@ -1,7 +1,7 @@
-"""79대포 사진관리 (베타) — 데스크톱 앱.
+"""SmartPlace Bulk (베타) — 데스크톱 앱.
 
 네이티브 창(pywebview)에서 UI를 띄우고, 버튼을 누르면 automation.py(Playwright)가
-실제 네이버 작업을 수행합니다.
+실제 네이버 작업을 수행합니다. 특정 브랜드에 종속되지 않습니다(브랜드 번호 입력식).
 
 실행:  python app.py
 """
@@ -134,7 +134,7 @@ class Api:
 def main() -> None:
     global window
     window = webview.create_window(
-        "79대포 사진관리 (베타)",
+        "SmartPlace Bulk (베타)",
         "ui/index.html",
         js_api=Api(),
         width=920,
