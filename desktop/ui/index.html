@@ -116,8 +116,21 @@
           <b>읽기 전용</b>이라 매장 정보는 바뀌지 않아요. (베타: 읽지 못한 지표는 빈 칸으로 표시)</p>
         </div>
         <div id="reviewBox" style="margin-top:14px; display:none">
-          <p class="muted" style="margin:0">선택한 지점의 <b>리뷰(작성자·별점·내용·작성일)</b>를 한곳에 모아 CSV로 저장합니다.
+          <p class="muted" style="margin:0 0 10px">선택한 지점의 <b>리뷰(작성자·별점·내용·작성일)</b>를 한곳에 모아 CSV로 저장합니다.
           <b>읽기 전용</b>이라 매장 정보는 바뀌지 않아요. (베타: 읽지 못한 지점은 '읽기 실패'로 표시)</p>
+          <details>
+            <summary style="cursor:pointer; font-size:13px; color:var(--muted)">🤖 AI 답글 초안 (선택) — Anthropic API 키 필요</summary>
+            <div style="margin-top:10px">
+              <p class="muted" style="margin:0 0 8px">수집한 리뷰에 <b>사장님 답글 초안</b>을 Claude로 생성합니다.
+                <b>초안만</b> 만들고, 검토 후 직접 게시하세요. 리뷰 본문이 Anthropic으로 전송됩니다.</p>
+              <input type="text" id="apiKey" placeholder="Anthropic API 키 (sk-ant-...)" style="width:320px" />
+              <label class="check" style="margin-left:8px"><input type="checkbox" id="saveKey"> 이 PC에 키 저장</label>
+              <div style="margin-top:8px">
+                <textarea id="brand" rows="2" style="width:100%; max-width:520px; font-family:inherit; font-size:13px"
+                  placeholder="브랜드 지침(선택): 말투·호칭·금지어 등. 예) 손님을 '고객님'이라 부르고 따뜻한 존댓말로."></textarea>
+              </div>
+            </div>
+          </details>
         </div>
       </section>
 
@@ -182,6 +195,10 @@
 
       async function init() {
         renderLicense(await api().license_status());
+        try {
+          const k = await api().get_api_key();
+          if (k && k.key) { document.getElementById('apiKey').value = k.key; document.getElementById('saveKey').checked = true; }
+        } catch (e) { /* optional */ }
         const r = await api().has_session();
         if (r.ok) setLoggedIn();
       }
@@ -341,7 +358,8 @@
         document.getElementById('progText').innerHTML =
           `<b>수집 완료!</b> 리뷰 ${s.리뷰수}건 / ${s.지점수}곳 (읽기 실패 ${s.읽기실패}곳) · 평균 ${avg}<br>` +
           (reviewRows.length
-            ? `<button class="btn" style="margin-top:10px" onclick="saveReviews()">📥 CSV로 저장</button>`
+            ? `<button class="btn" style="margin-top:10px" onclick="saveReviews()">📥 CSV로 저장</button>` +
+              `<button class="btn-ghost" style="margin:10px 0 0 8px" onclick="doDraft()">🤖 AI 답글 초안 생성</button>`
             : `<div class="error" style="margin-top:8px">리뷰를 읽지 못했습니다. ` +
               `<code>~/.smartplace_beta/reviews_debug/</code> 의 파일을 개발자에게 보내주시면 맞춰 고칠 수 있어요.</div>`);
       };
@@ -349,6 +367,36 @@
         if (!reviewRows || !reviewRows.length) { alert('저장할 리뷰가 없습니다'); return; }
         const r = await api().save_reviews_csv(reviewRows);
         if (r.saved) alert('CSV로 저장했어요:\n' + r.saved);
+      }
+
+      let draftRows = null;
+      async function doDraft() {
+        if (!reviewRows || !reviewRows.length) { alert('먼저 리뷰를 수집하세요'); return; }
+        const key = (document.getElementById('apiKey').value || '').trim();
+        if (!key) { alert("Anthropic API 키를 입력하세요.\n('🤖 AI 답글 초안' 항목을 펼쳐 입력)"); return; }
+        const brand = document.getElementById('brand').value || '';
+        const saveKey = document.getElementById('saveKey').checked;
+        if (!confirm(reviewRows.length + '건의 리뷰에 답글 초안을 생성합니다. 리뷰 본문이 Anthropic으로 전송됩니다. 계속할까요?')) return;
+        draftRows = null;
+        startRunUI();
+        const res = await api().draft_reviews(reviewRows, key, brand, saveKey);
+        if (res && res.error) window.onError(res.error);
+      }
+      window.onDraftDone = (rows) => {
+        document.getElementById('runBtn').disabled = false;
+        draftRows = rows || [];
+        const okN = draftRows.filter(r => r.답글초안 && !r.오류).length;
+        const sample = draftRows.find(r => r.답글초안);
+        document.getElementById('progText').innerHTML =
+          `<b>초안 생성 완료!</b> ${okN}/${draftRows.length}건` +
+          (sample ? `<br><span class="muted">예시 — ${sample.작성자 || '익명'}: “${sample.답글초안}”</span>` : '') +
+          `<br><button class="btn" style="margin-top:10px" onclick="saveDrafts()">📥 답글 초안 CSV 저장</button>` +
+          `<div class="muted" style="margin-top:6px">⚠️ 초안입니다. 검토·수정 후 네이버에 직접 게시하세요.</div>`;
+      };
+      async function saveDrafts() {
+        if (!draftRows || !draftRows.length) { alert('저장할 초안이 없습니다'); return; }
+        const r = await api().save_drafts_csv(draftRows);
+        if (r.saved) alert('답글 초안 CSV를 저장했어요:\n' + r.saved);
       }
       window.onError = (msg) => {
         document.getElementById('runBtn').disabled = false;

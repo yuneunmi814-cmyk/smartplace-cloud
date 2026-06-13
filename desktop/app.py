@@ -23,6 +23,9 @@ window = None
 ENFORCE_LICENSE = os.environ.get("SMARTPLACE_LICENSE_ENFORCE", "0") == "1"
 LICENSE_SERVER = os.environ.get("SMARTPLACE_LICENSE_SERVER", licensing.DEFAULT_SERVER)
 
+# AI 답글 초안용 Anthropic API 키 보관 위치(사용자 PC에만, 선택 저장).
+_API_KEY_FILE = Path.home() / ".smartplace_beta" / "anthropic_key"
+
 # 메뉴 CSV 양식 (엑셀에서 채워서 업로드). utf-8-sig = 엑셀 한글 깨짐 방지.
 MENU_TEMPLATE = (
     "name,price,description,image,recommended\n"
@@ -145,6 +148,39 @@ class Api:
             return {"saved": None}
         path = dest if isinstance(dest, str) else dest[0]
         Path(path).write_text(reviews.to_csv(rows or []), encoding="utf-8-sig")
+        return {"saved": path}
+
+    # ---- AI 답글 초안 ------------------------------------------------------
+    def get_api_key(self) -> dict:
+        """로컬에 저장해 둔 Anthropic API 키(있으면). 사용자 PC에만 보관."""
+        try:
+            return {"key": _API_KEY_FILE.read_text().strip() if _API_KEY_FILE.exists() else ""}
+        except Exception:  # noqa: BLE001
+            return {"key": ""}
+
+    def draft_reviews(self, rows: list, api_key: str, brand: str, save_key: bool) -> dict:
+        """수집된 리뷰에 AI 답글 초안 생성(초안만, 게시 안 함). 결과는 window.onDraftDone."""
+        key = (api_key or "").strip()
+        if not key:
+            return {"error": "Anthropic API 키를 입력하세요. (앱에서 직접 입력 — 코드에 저장 안 됨)"}
+        if save_key:
+            try:
+                _API_KEY_FILE.parent.mkdir(parents=True, exist_ok=True)
+                _API_KEY_FILE.write_text(key)
+            except Exception:  # noqa: BLE001
+                pass
+        import reply_draft
+        return self._run_bg(
+            lambda cb: reply_draft.draft_replies(key, rows or [], brand_instructions=brand or "", progress_cb=cb),
+            done="onDraftDone")
+
+    def save_drafts_csv(self, rows: list) -> dict:
+        import reply_draft
+        dest = window.create_file_dialog(webview.SAVE_DIALOG, save_filename="리뷰_답글초안.csv")
+        if not dest:
+            return {"saved": None}
+        path = dest if isinstance(dest, str) else dest[0]
+        Path(path).write_text(reply_draft.to_csv(rows or []), encoding="utf-8-sig")
         return {"saved": path}
 
 
