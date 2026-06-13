@@ -89,6 +89,7 @@
         <div class="row">
           <label class="check"><input type="radio" name="mode" value="photo" checked onchange="setMode('photo')"> 대표사진 일괄</label>
           <label class="check"><input type="radio" name="mode" value="menu" onchange="setMode('menu')"> 메뉴 일괄</label>
+          <label class="check"><input type="radio" name="mode" value="report" onchange="setMode('report')"> 📊 리포트 수집(베타)</label>
         </div>
         <div id="photoBox" style="margin-top:14px">
           <button class="btn-ghost" onclick="pickFolder()">이미지 폴더 선택</button>
@@ -109,6 +110,10 @@
             <input type="checkbox" id="replaceChk"> 기존 메뉴 삭제 후 통일(교체) ⚠️
           </label>
         </div>
+        <div id="reportBox" style="margin-top:14px; display:none">
+          <p class="muted" style="margin:0">선택한 지점의 <b>방문·조회·리뷰·예약수</b>를 모아 CSV로 저장합니다.
+          <b>읽기 전용</b>이라 매장 정보는 바뀌지 않아요. (베타: 읽지 못한 지표는 빈 칸으로 표시)</p>
+        </div>
       </section>
 
       <!-- Step 4: 실행 -->
@@ -125,12 +130,16 @@
       let branches = [];
       let folder = null;
       let mode = 'photo', csvPath = null, menuImgDir = null;
+      let reportRows = null;
       const api = () => window.pywebview.api;
 
       function setMode(m) {
         mode = m;
         document.getElementById('photoBox').style.display = m === 'photo' ? 'block' : 'none';
         document.getElementById('menuBox').style.display = m === 'menu' ? 'block' : 'none';
+        document.getElementById('reportBox').style.display = m === 'report' ? 'block' : 'none';
+        // 리포트는 폴더/CSV 선택이 필요 없으니 지점만 있으면 바로 실행 가능.
+        if (m === 'report') document.getElementById('s4').classList.remove('disabled');
       }
 
       let licEnforced = false, licOk = false;
@@ -248,6 +257,13 @@
         const seqs = selected();
         if (!seqs.length) { alert('지점을 선택하세요'); return; }
         const brand = document.getElementById('brandSeq').value;
+        if (mode === 'report') {
+          reportRows = null;
+          startRunUI();
+          const res = await api().collect_reports(brand, seqs);
+          if (res && res.error) window.onError(res.error);
+          return;
+        }
         if (mode === 'photo') {
           if (!folder) { alert('이미지 폴더를 선택하세요'); return; }
           if (!confirm(seqs.length + '곳에 대표사진을 등록합니다. 계속할까요?')) return;
@@ -281,6 +297,27 @@
         document.getElementById('progText').innerHTML =
           `<b>완료!</b> 성공 ${res.ok} / 실패 ${res.fail.length} (이미지 ${res.images}장)`;
       };
+      window.onReportDone = (res) => {
+        document.getElementById('runBtn').disabled = false;
+        reportRows = res.rows || [];
+        const s = res.summary || { 지점수: 0, 읽기실패: 0, 합계: {} };
+        const t = s.합계 || {};
+        const sumStr = Object.keys(t).map(k => `${k} ${t[k].toLocaleString()}`).join(' · ');
+        document.getElementById('progText').innerHTML =
+          `<b>수집 완료!</b> ${s.지점수}곳 (읽기 실패 ${s.읽기실패}곳)<br>` +
+          `<span class="muted">합계 — ${sumStr || '읽은 지표 없음'}</span><br>` +
+          `<button class="btn" style="margin-top:10px" onclick="saveReport()">📥 CSV로 저장</button>`;
+        if (s.읽기실패 === s.지점수 && s.지점수 > 0) {
+          document.getElementById('progText').innerHTML +=
+            `<div class="error" style="margin-top:8px">모든 지점에서 통계를 읽지 못했습니다. ` +
+            `<code>~/.smartplace_beta/reports_debug/</code> 의 파일을 개발자에게 보내주시면 맞춰 고칠 수 있어요.</div>`;
+        }
+      };
+      async function saveReport() {
+        if (!reportRows || !reportRows.length) { alert('저장할 데이터가 없습니다'); return; }
+        const r = await api().save_report_csv(reportRows);
+        if (r.saved) alert('CSV로 저장했어요:\n' + r.saved);
+      }
       window.onError = (msg) => {
         document.getElementById('runBtn').disabled = false;
         document.getElementById('progText').innerHTML = '<span class="error">오류: ' + msg + '</span>';

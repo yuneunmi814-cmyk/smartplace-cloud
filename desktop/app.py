@@ -82,16 +82,16 @@ class Api:
         Path(path).write_text(MENU_TEMPLATE, encoding="utf-8-sig")
         return {"saved": path}
 
-    def _run_bg(self, fn):
+    def _run_bg(self, fn, done="onDone"):
         def run():
-            def cb(done, total, ps, ok, err):
+            def cb(done_, total, ps, ok, err):
                 window.evaluate_js(
-                    f"window.onProgress({done},{total},{json.dumps(ps)},"
+                    f"window.onProgress({done_},{total},{json.dumps(ps)},"
                     f"{str(bool(ok)).lower()},{json.dumps(err or '')})"
                 )
             try:
                 res = fn(cb)
-                window.evaluate_js(f"window.onDone({json.dumps(res)})")
+                window.evaluate_js(f"window.{done}({json.dumps(res, ensure_ascii=False)})")
             except Exception as exc:  # noqa: BLE001
                 window.evaluate_js(f"window.onError({json.dumps(str(exc))})")
         threading.Thread(target=run, daemon=True).start()
@@ -111,6 +111,24 @@ class Api:
             lambda cb: automation.apply_menu_bulk(
                 brand_seq.strip(), [str(s) for s in place_seqs],
                 csv_path, image_dir or None, bool(replace), cb))
+
+    def collect_reports(self, brand_seq: str, place_seqs: list) -> dict:
+        """전 지점 통계 수집(읽기 전용). 결과는 window.onReportDone 으로."""
+        if not self._licensed():
+            return {"error": "라이선스가 필요합니다. 상단에서 라이선스 키를 활성화하세요."}
+        return self._run_bg(
+            lambda cb: automation.collect_reports(brand_seq.strip(), [str(s) for s in place_seqs], cb),
+            done="onReportDone")
+
+    def save_report_csv(self, rows: list) -> dict:
+        import reports
+        dest = window.create_file_dialog(webview.SAVE_DIALOG, save_filename="전지점_통계.csv")
+        if not dest:
+            return {"saved": None}
+        path = dest if isinstance(dest, str) else dest[0]
+        # utf-8-sig = 엑셀에서 한글 안 깨짐.
+        Path(path).write_text(reports.to_csv(rows or []), encoding="utf-8-sig")
+        return {"saved": path}
 
 
 def main() -> None:

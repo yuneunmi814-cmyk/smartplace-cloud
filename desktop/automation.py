@@ -16,12 +16,15 @@ from pathlib import Path
 
 from playwright.sync_api import sync_playwright
 
+import reports
+
 SMARTPLACE = "https://new.smartplace.naver.com"
 BOOKING = "https://partner.booking.naver.com"
 NAVER_LOGIN = "https://nid.naver.com/nidlogin.login"
 AUTH_COOKIES = ("NID_AUT", "NID_SES")
 SESSION_FILE = Path.home() / ".smartplace_beta" / "session.json"
 DEBUG_DIR = Path.home() / ".smartplace_beta" / "debug"
+REPORTS_DEBUG_DIR = Path.home() / ".smartplace_beta" / "reports_debug"
 DATE_RE = re.compile(r"/(20\d{6})_")
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp"}
 
@@ -414,3 +417,97 @@ def apply_menu_bulk(brand_seq, place_seqs, csv_path, image_dir, replace, progres
         SESSION_FILE.write_text(json.dumps(ctx.storage_state()))
         browser.close()
     return {"ok": ok_n, "fail": fail, "menus": len(items)}
+
+
+# ---- branch reports (전 지점 통계 수집, 읽기 전용) -------------------------
+#
+# ⚠️ 네이버 종속(미확정): 통계 페이지의 정확한 URL과 응답 JSON 필드는 실계정 1회
+# 수집으로 확인해야 합니다. 그래서 이 모듈은 (1) 통계 페이지가 부르는 XHR JSON을
+# **그대로 캡처**해 reports.extract_metrics 로 지표를 뽑고, (2) 못 뽑으면 원본을
+# reports_debug 폴더에 **덤프**합니다(가짜 0 대신 '읽기 실패'로 정직 보고).
+# URL/필드를 확정하면 아래 REPORT_URL_CANDIDATES 와 reports.METRIC_FIELDS 만 손보면 됩니다.
+
+REPORT_URL_CANDIDATES = (
+    "https://new.smartplace.naver.com/bizes/place/{ps}/reports",
+    "https://new.smartplace.naver.com/brand/report?brandSeq={bs}&placeSeq={ps}",
+)
+
+
+def _capture_json(page) -> list[dict]:
+    """페이지가 부르는 JSON 응답을 모은다. 핸들러 안에서 body가 없으면 조용히 패스."""
+    captured: list[dict] = []
+
+    def on_response(resp):
+        try:
+            if "json" in (resp.headers.get("content-type") or "").lower():
+                captured.append(resp.json())
+        except Exception:
+            pass
+
+    page.on("response", on_response)
+    return captured
+
+
+def _dump_reports_debug(page, place_seq: str, captured: list[dict]) -> str | None:
+    """지표를 못 읽었을 때, 실제 응답·화면을 남겨 매핑을 확정할 수 있게 한다."""
+    try:
+        REPORTS_DEBUG_DIR.mkdir(parents=True, exist_ok=True)
+        stem = REPORTS_DEBUG_DIR / f"report_{place_seq}_{int(time.time())}"
+        stem.with_suffix(".json").write_text(
+            json.dumps(captured, ensure_ascii=False)[:500000], encoding="utf-8")
+        page.screenshot(path=str(stem.with_suffix(".png")), full_page=True)
+        return str(stem.with_suffix(".json"))
+    except Exception:
+        return None
+
+
+def _collect_one(ctx, brand_seq: str, place_seq: str) -> dict:
+    page = ctx.new_page()
+    captured = _capture_json(page)
+    try:
+        for tpl in REPORT_URL_CANDIDATES:
+            try:
+                page.goto(tpl.format(ps=place_seq, bs=brand_seq), wait_until="domcontentloaded")
+            except Exception:
+                continue
+            page.wait_for_timeout(4500)  # let analytics XHRs fire
+            _dismiss_modal(page)
+            if any(captured):
+                break
+        metrics = reports.extract_metrics(list(captured))
+        if all(v is None for v in metrics.values()):
+            _dump_reports_debug(page, place_seq, list(captured))
+        try:
+            name = page.title() or ""
+        except Exception:
+            name = ""
+        return reports.build_row(name, place_seq, metrics)
+    finally:
+        page.close()
+
+
+def collect_reports(brand_seq: str, place_seqs: list[str], progress_cb) -> dict:
+    """각 지점의 통계 페이지를 열어 지표(방문·조회·리뷰·예약)를 모은다. 쓰기 없음.
+    반환: {rows, summary}. 못 읽은 지점은 '읽기 실패'로 표기(가짜 0 금지)."""
+    rows: list[dict] = []
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True, args=["--disable-blink-features=AutomationControlled"])
+        ctx = _new_context(p, browser)
+        if not (set(AUTH_COOKIES) & {c["name"] for c in ctx.cookies()}):
+            browser.close()
+            raise RuntimeError("세션이 만료되었습니다. 다시 로그인하세요.")
+        total = len(place_seqs)
+        for i, ps in enumerate(place_seqs, 1):
+            err = None
+            try:
+                row = _collect_one(ctx, brand_seq, ps)
+            except Exception as exc:  # noqa: BLE001
+                err = str(exc)
+                row = reports.build_row("", ps, {k: None for k in reports.METRIC_FIELDS})
+            rows.append(row)
+            ok = err is None and row.get("수집상태") != "읽기 실패"
+            progress_cb(i, total, ps, ok, err or ("" if ok else "통계를 읽지 못함"))
+            time.sleep(2)
+        SESSION_FILE.write_text(json.dumps(ctx.storage_state()))
+        browser.close()
+    return {"rows": rows, "summary": reports.summarize(rows)}
