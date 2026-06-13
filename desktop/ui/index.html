@@ -2,7 +2,7 @@
 <html lang="ko">
   <head>
     <meta charset="UTF-8" />
-    <title>79대포 사진관리</title>
+    <title>SmartPlace Bulk</title>
     <style>
       :root {
         --green: #2db400; --green-d: #259700; --bg: #f5f7fa; --card: #fff;
@@ -45,7 +45,7 @@
   </head>
   <body>
     <header>
-      <h1>📷 79대포 사진관리 <span class="muted" style="font-size:12px">베타</span></h1>
+      <h1>📷 SmartPlace Bulk <span class="muted" style="font-size:12px">베타</span></h1>
       <p>네이버 로그인 → 지점 자동 불러오기 → 이미지 일괄 등록</p>
     </header>
     <main>
@@ -71,7 +71,7 @@
         <h2>2. 지점 불러오기</h2>
         <div class="row">
           <span class="muted">브랜드 번호(brandSeq)</span>
-          <input type="text" id="brandSeq" value="6707" />
+          <input type="text" id="brandSeq" placeholder="예: 1234 (브랜드 관리 URL의 brandSeq)" style="width:280px" />
           <button class="btn-ghost" onclick="doScrape()">지점 불러오기</button>
           <span id="scrapeMsg" class="muted"></span>
         </div>
@@ -195,8 +195,10 @@
 
       async function doScrape() {
         const msg = document.getElementById('scrapeMsg');
+        const brand = document.getElementById('brandSeq').value.trim();
+        if (!brand) { msg.innerHTML = '<span class="error">브랜드 번호(brandSeq)를 입력하세요</span>'; return; }
         msg.textContent = '불러오는 중… (1~2분)';
-        const r = await api().scrape(document.getElementById('brandSeq').value);
+        const r = await api().scrape(brand);
         if (r.error) { msg.innerHTML = '<span class="error">' + r.error + '</span>'; return; }
         branches = r.branches || [];
         msg.textContent = branches.length + '곳 불러옴';

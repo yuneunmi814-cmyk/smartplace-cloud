@@ -133,16 +133,11 @@ def _inspect_brand(page, settings, diag: Path, brand_seq: str) -> None:
         # For each biz-edit link, walk up to its row and read the 지점명.
         links = page.eval_on_selector_all(
             "a[href*='biz-edit'], a[href*='placeSeq']",
+            # Brand-agnostic: use the link's row container (any franchise) — not a
+            # hardcoded brand-name match — so the store name is the row's first line.
             """els => els.map(a => {
                 const href = a.getAttribute('href') || '';
-                let row = a.closest('tr') || a.closest('[role=row]') || a.closest('li');
-                if (!row) {
-                    let p = a;
-                    for (let i = 0; i < 8; i++) {
-                        p = p && p.parentElement;
-                        if (p && (p.innerText || '').includes('79대포')) { row = p; break; }
-                    }
-                }
+                const row = a.closest('tr') || a.closest('[role=row]') || a.closest('li') || a.parentElement;
                 return { href, text: row ? (row.innerText || '').trim() : '' };
             })""",
         )
@@ -151,8 +146,8 @@ def _inspect_brand(page, settings, diag: Path, brand_seq: str) -> None:
             raw_hrefs.add(href)
             m = re.search(r"placeSeq=(\d+)", href)
             if m:
-                nm = re.search(r"79대포[^\n\t]*", link.get("text") or "")
-                name = nm.group(0).strip() if nm else (link.get("text") or "")[:30]
+                text = (link.get("text") or "").strip()
+                name = next((ln.strip() for ln in text.splitlines() if ln.strip()), "")[:30]
                 mapping.setdefault(m.group(1), name)
 
     # Best-effort: bump the per-page selector to 100 so fewer pages to click.

@@ -6,7 +6,7 @@ Usage:
 
 Example (local image):
     GATEWAY_MOCK=0 GATEWAY_HEADLESS=false \\
-        python -m app.try_apply 79daepo 4927940 ~/Downloads/test.jpg
+        python -m app.try_apply <네이버아이디> <placeId> ~/Downloads/test.jpg
 
 This adds ONE photo to that store. The store already has many photos, so it's
 safe to try and easy to remove afterwards in the partner center.

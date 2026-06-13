@@ -2,11 +2,11 @@
 
 Usage:
     # 한 곳 테스트:
-    GATEWAY_MOCK=0 python -m app.bulk_menu 79daepo 6707 menu.csv --only 4927940
+    GATEWAY_MOCK=0 python -m app.bulk_menu <네이버아이디> <brandSeq> menu.csv --only <placeSeq>
     # 특정 지점들:
-    GATEWAY_MOCK=0 python -m app.bulk_menu 79daepo 6707 menu.csv --file diag/brand_6707_targets.json
+    GATEWAY_MOCK=0 python -m app.bulk_menu <네이버아이디> <brandSeq> menu.csv --file diag/brand_<brandSeq>_targets.json
     # 전체 + 기존 메뉴 교체(통일):
-    GATEWAY_MOCK=0 python -m app.bulk_menu 79daepo 6707 menu.csv --replace
+    GATEWAY_MOCK=0 python -m app.bulk_menu <네이버아이디> <brandSeq> menu.csv --replace
     # 메뉴 이미지 폴더:  --image-dir ./menu_images
 
 placeSeq 목록은 diag/brand_{brandSeq}_places.json (app.inspect 로 생성)에서 읽음.
