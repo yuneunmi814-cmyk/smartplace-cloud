@@ -183,6 +183,44 @@ class Api:
         Path(path).write_text(reply_draft.to_csv(rows or []), encoding="utf-8-sig")
         return {"saved": path}
 
+    # ---- 배달앱 손익계산서 (배민/쿠팡이츠/요기요 정산 xlsx → 손익) ----------
+    def pick_xlsx_files(self) -> dict:
+        res = window.create_file_dialog(
+            webview.OPEN_DIALOG, allow_multiple=True,
+            file_types=("Excel 정산파일 (*.xlsx)", "모든 파일 (*.*)"))
+        return {"paths": list(res) if res else []}
+
+    def generate_pnl(self, file_paths: list, tax_type: str, baemin_password: str, manual: dict) -> dict:
+        """정산 xlsx → 손익계산서. 결과 요약 반환 + 보고서 바이트는 저장용으로 보관.
+        LLM 미사용(use_llm=False) → 토큰비용 0, 순수 로컬 계산."""
+        if not file_paths:
+            return {"error": "정산 파일(.xlsx)을 선택하세요."}
+        import pnl
+        try:
+            out = pnl.generate_report(
+                [str(p) for p in file_paths],
+                tax_type=tax_type or "general",
+                baemin_password=(baemin_password or "").strip() or None,
+                manual=manual or {},
+            )
+        except Exception as exc:  # noqa: BLE001
+            return {"error": str(exc)}
+        self._pnl_xlsx = out.pop("xlsx_bytes")   # 바이트는 JS로 안 보냄(저장 때 사용)
+        self._pnl_name = out.get("xlsx_filename", "손익계산서.xlsx")
+        return out
+
+    def save_pnl_report(self) -> dict:
+        data = getattr(self, "_pnl_xlsx", None)
+        if not data:
+            return {"saved": None}
+        dest = window.create_file_dialog(
+            webview.SAVE_DIALOG, save_filename=getattr(self, "_pnl_name", "손익계산서.xlsx"))
+        if not dest:
+            return {"saved": None}
+        path = dest if isinstance(dest, str) else dest[0]
+        Path(path).write_bytes(data)
+        return {"saved": path}
+
 
 def main() -> None:
     global window

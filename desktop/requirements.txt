@@ -2,3 +2,8 @@ pywebview>=5.0
 playwright>=1.47
 cryptography>=43.0   # 오프라인 라이선스 서명 검증 (license.py)
 anthropic>=0.40      # AI 답글 초안 생성 (reply_draft.py) — 사용자 API 키 필요
+# 배달앱 손익계산서 엔진 (pnl/ — baedal-pnl에서 벤더링)
+pandas>=2.2
+openpyxl>=3.1
+pydantic>=2.6
+msoffcrypto-tool>=5.4   # 배민 정산명세서(암호화 xlsx) 복호화
