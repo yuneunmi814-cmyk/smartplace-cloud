@@ -1,11 +1,11 @@
-name: ✨ 기능 제안 (Feature request)
+name: 기능 제안 (Feature request)
 description: 새 기능이나 개선 아이디어를 제안해 주세요 / Suggest a feature or improvement
 labels: ["enhancement"]
 body:
   - type: markdown
     attributes:
       value: |
-        아이디어 감사합니다 💡 큰 변경은 구현 전에 여기서 먼저 상의하면 헛수고를 줄일 수 있어요.
+        아이디어 감사합니다 큰 변경은 구현 전에 여기서 먼저 상의하면 헛수고를 줄일 수 있어요.
         _Thanks! For larger changes, discussing here first saves wasted effort._
   - type: textarea
     id: problem

@@ -1,11 +1,11 @@
-name: 🐛 버그 제보 (Bug report)
+name: 버그 제보 (Bug report)
 description: 동작이 잘못됐나요? 재현 방법을 알려주세요 / Report something broken
 labels: ["bug"]
 body:
   - type: markdown
     attributes:
       value: |
-        제보 감사합니다 🙏 재현 방법이 자세할수록 빨리 고칠 수 있어요.
+        제보 감사합니다 재현 방법이 자세할수록 빨리 고칠 수 있어요.
         _Thanks! The more detail, the faster we can fix it._
   - type: input
     id: env

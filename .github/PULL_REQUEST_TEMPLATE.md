@@ -1,5 +1,5 @@
 <!--
-처음이세요? 환영합니다 🙌  [기여 가이드](../blob/main/CONTRIBUTING.md)도 참고하세요.
+처음이세요? 환영합니다 [기여 가이드](../blob/main/CONTRIBUTING.md)도 참고하세요.
 First time? Welcome! See the CONTRIBUTING guide too.
 아래를 채워주시면 리뷰가 빨라집니다. (해당 없는 항목은 지워도 돼요)
 -->
@@ -11,10 +11,10 @@ First time? Welcome! See the CONTRIBUTING guide too.
 Closes #
 
 ## 변경 유형 (Type)
-- [ ] 🐛 버그 수정 (bug fix)
-- [ ] ✨ 기능 추가 (feature)
-- [ ] 📖 문서 (docs)
-- [ ] 🧹 리팩터링/기타 (refactor/chore)
+- [ ] 버그 수정 (bug fix)
+- [ ] 기능 추가 (feature)
+- [ ] 문서 (docs)
+- [ ] 리팩터링/기타 (refactor/chore)
 
 ## 체크리스트 (Checklist)
 - [ ] 건드린 부분의 로컬 검사를 통과했습니다 — `pytest` / `npm run typecheck && npm run build`

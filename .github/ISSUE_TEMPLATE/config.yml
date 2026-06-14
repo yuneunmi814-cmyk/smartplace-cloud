@@ -1,8 +1,8 @@
 blank_issues_enabled: true
 contact_links:
-  - name: 📖 기여 가이드 (Contributing guide)
+  - name: 기여 가이드 (Contributing guide)
     url: https://github.com/yuneunmi814-cmyk/smartplace-cloud/blob/main/CONTRIBUTING.md
     about: 기여 방법·개발 환경·PR 규칙을 먼저 확인하세요 / How to set up and contribute
-  - name: ⚠️ 사용 시 주의 (Disclaimer)
+  - name: 사용 시 주의 (Disclaimer)
     url: https://github.com/yuneunmi814-cmyk/smartplace-cloud/blob/main/DISCLAIMER.md
     about: 네이버 약관·사용 한계 안내 / Terms-of-Service and usage limits
