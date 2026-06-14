@@ -32,7 +32,7 @@ GATEWAY_MOCK=0 GATEWAY_KEY=<worker와 동일> uvicorn app.main:app --port 8000
 
 또는 docker compose의 `gateway` 서비스로 함께 기동됩니다.
 
-## ⚠️ 운영 주의 (반드시 읽기)
+## 운영 주의 (반드시 읽기)
 
 - 네이버는 이 작업의 **공식 API가 없어** 실제 웹 UI를 자동화합니다.
 - **ID/PW 로그인은 캡차·2차 인증·봇 탐지에 막힐 수 있습니다.** 막히면 `423 Locked`(`CaptchaRequired`)를 반환하고, 워커는 실패로 기록 후 재시도합니다.

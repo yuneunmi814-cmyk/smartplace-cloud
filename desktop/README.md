@@ -29,4 +29,4 @@ python app.py
 - **PyInstaller**로 `.app`/`.exe` 패키징 (Chromium 동봉)
 - 라이선스 키 검증 + 결제(구독) 연동 — `backend/`에 구현됨(Ed25519 서명·구독·webhook)
 - brandSeq 자동 감지(로그인 후 브랜드 자동 인식)
-- ⚠️ **정식 판매 전 네이버 약관 법무 검토 필수**
+- **정식 판매 전 네이버 약관 법무 검토 필수**
