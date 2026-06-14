@@ -5,47 +5,64 @@
     <title>SmartPlace Bulk</title>
     <style>
       :root {
-        --green: #2db400; --green-d: #259700; --bg: #f5f7fa; --card: #fff;
-        --border: #e2e6ee; --text: #1c2230; --muted: #6b7385; --danger: #d64564;
+        --green: #03C75A;      /* 네이버 메인 그린 */
+        --green-d: #02b351;    /* hover */
+        --green-ink: #01934a;  /* 밝은 배경 위 텍스트 */
+        --green-soft: #eafaf1; /* 옅은 틴트 */
+        --bg: #f6f8f9; --card: #fff;
+        --border: #e6e9ee; --text: #1c2230; --muted: #6b7385; --danger: #d64564;
         font-family: -apple-system, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
       }
       * { box-sizing: border-box; }
-      body { margin: 0; background: var(--bg); color: var(--text); }
-      header { background: var(--card); border-bottom: 1px solid var(--border); padding: 16px 24px; }
-      header h1 { margin: 0; font-size: 18px; }
-      header p { margin: 4px 0 0; font-size: 12px; color: var(--muted); }
-      main { padding: 20px 24px; max-width: 860px; margin: 0 auto; }
-      .step { background: var(--card); border: 1px solid var(--border); border-radius: 14px;
-        padding: 20px; margin-bottom: 16px; }
+      body { margin: 0; background: var(--bg); color: var(--text); -webkit-font-smoothing: antialiased; }
+      header { background: var(--card); border-bottom: 1px solid var(--border); padding: 16px 24px;
+        box-shadow: 0 1px 0 rgba(3,199,90,.06); }
+      header h1 { margin: 0; font-size: 18px; font-weight: 700; letter-spacing: -.2px;
+        display: flex; align-items: center; gap: 8px; }
+      .brandmark { width: 18px; height: 18px; border-radius: 5px; background: var(--green); }
+      header p { margin: 6px 0 0; font-size: 12px; color: var(--muted); }
+      main { padding: 22px 24px; max-width: 880px; margin: 0 auto; }
+      .step { background: var(--card); border: 1px solid var(--border); border-radius: 16px;
+        padding: 22px; margin-bottom: 16px; box-shadow: 0 1px 2px rgba(20,30,50,.04); }
       .step.disabled { opacity: 0.45; pointer-events: none; }
-      .step h2 { margin: 0 0 12px; font-size: 16px; }
-      .badge { font-size: 12px; padding: 2px 10px; border-radius: 999px; margin-left: 8px; }
-      .badge.ok { background: #e6f6e0; color: var(--green-d); }
+      .step h2 { margin: 0 0 14px; font-size: 16px; font-weight: 700; letter-spacing: -.2px; }
+      .badge { font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 999px; margin-left: 8px; }
+      .badge.ok { background: var(--green-soft); color: var(--green-ink); }
       .badge.no { background: #fdecef; color: var(--danger); }
-      button { font-family: inherit; cursor: pointer; border-radius: 9px; font-size: 14px; }
-      .btn { background: var(--green); color: #fff; border: none; padding: 11px 20px; }
+      button { font-family: inherit; cursor: pointer; border-radius: 10px; font-size: 14px; font-weight: 600;
+        transition: background .15s, border-color .15s, color .15s; }
+      .btn { background: var(--green); color: #fff; border: none; padding: 11px 20px;
+        box-shadow: 0 1px 2px rgba(3,199,90,.25); }
       .btn:hover { background: var(--green-d); }
-      .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-      .btn-ghost { background: #fff; border: 1px solid var(--border); padding: 6px 12px; font-size: 13px; }
-      input[type=text] { border: 1px solid var(--border); border-radius: 8px; padding: 9px 12px;
-        font-size: 14px; width: 160px; }
+      .btn:disabled { opacity: 0.5; cursor: not-allowed; box-shadow: none; }
+      .btn-ghost { background: #fff; border: 1px solid var(--border); color: var(--text); padding: 7px 14px; font-size: 13px; }
+      .btn-ghost:hover { border-color: var(--green); color: var(--green-ink); }
+      input[type=text], input[type=number], select, textarea {
+        border: 1px solid var(--border); border-radius: 9px; padding: 9px 12px;
+        font-size: 14px; width: 160px; background: #fff; color: var(--text); }
+      input:focus, select:focus, textarea:focus {
+        outline: none; border-color: var(--green); box-shadow: 0 0 0 3px var(--green-soft); }
       .muted { color: var(--muted); font-size: 13px; }
       .error { color: var(--danger); font-size: 13px; }
       .row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
       .list { max-height: 240px; overflow-y: auto; border: 1px solid var(--border);
-        border-radius: 8px; padding: 8px 12px; margin-top: 10px; }
+        border-radius: 10px; padding: 8px 12px; margin-top: 10px; }
       .list label { display: flex; gap: 8px; align-items: center; font-size: 14px; padding: 4px 0; }
-      .progress { height: 14px; background: #eef1f5; border-radius: 999px; overflow: hidden; margin: 14px 0 8px; }
+      .progress { height: 12px; background: #eef1f5; border-radius: 999px; overflow: hidden; margin: 14px 0 8px; }
       .progress > div { height: 100%; background: var(--green); width: 0; transition: width .3s; }
       .log { max-height: 200px; overflow-y: auto; font-size: 13px; font-family: ui-monospace, monospace;
-        border: 1px solid var(--border); border-radius: 8px; padding: 8px; margin-top: 8px; }
-      .log .ok { color: var(--green-d); } .log .fail { color: var(--danger); }
+        border: 1px solid var(--border); border-radius: 10px; padding: 8px; margin-top: 8px; }
+      .log .ok { color: var(--green-ink); } .log .fail { color: var(--danger); }
       .folder { font-size: 13px; color: var(--muted); word-break: break-all; }
+      table.table { border-collapse: collapse; }
+      table.table td { padding: 5px 10px; border-bottom: 1px solid var(--border); font-size: 13px; }
+      table.table th { padding: 5px 10px; border-bottom: 1px solid var(--border); font-size: 12px;
+        color: var(--muted); text-align: left; font-weight: 600; }
     </style>
   </head>
   <body>
     <header>
-      <h1>📷 SmartPlace Bulk <span class="muted" style="font-size:12px">베타</span></h1>
+      <h1><span class="brandmark"></span>SmartPlace Bulk <span class="muted" style="font-size:12px; font-weight:400">베타</span></h1>
       <p>네이버 로그인 → 지점 자동 불러오기 → 이미지 일괄 등록</p>
     </header>
     <main>
@@ -89,8 +106,8 @@
         <div class="row">
           <label class="check"><input type="radio" name="mode" value="photo" checked onchange="setMode('photo')"> 대표사진 일괄</label>
           <label class="check"><input type="radio" name="mode" value="menu" onchange="setMode('menu')"> 메뉴 일괄</label>
-          <label class="check"><input type="radio" name="mode" value="report" onchange="setMode('report')"> 📊 리포트 수집(베타)</label>
-          <label class="check"><input type="radio" name="mode" value="review" onchange="setMode('review')"> 💬 리뷰 수집(베타)</label>
+          <label class="check"><input type="radio" name="mode" value="report" onchange="setMode('report')"> 리포트 수집(베타)</label>
+          <label class="check"><input type="radio" name="mode" value="review" onchange="setMode('review')"> 리뷰 수집(베타)</label>
         </div>
         <div id="photoBox" style="margin-top:14px">
           <button class="btn-ghost" onclick="pickFolder()">이미지 폴더 선택</button>
@@ -98,7 +115,7 @@
         </div>
         <div id="menuBox" style="margin-top:14px; display:none">
           <p class="muted" style="margin:0 0 8px">① 양식 받기 → 엑셀로 메뉴 채우기 → ② 작성한 파일 선택</p>
-          <button class="btn-ghost" onclick="saveTemplate()">📥 메뉴 양식(CSV) 받기</button>
+          <button class="btn-ghost" onclick="saveTemplate()">메뉴 양식(CSV) 받기</button>
           <div style="margin-top:8px">
             <button class="btn-ghost" onclick="pickCsv()">② 작성한 CSV 선택</button>
             <span id="csv" class="folder"></span>
@@ -108,7 +125,7 @@
             <span id="menuImg" class="folder"></span>
           </div>
           <label class="check" style="margin-top:10px">
-            <input type="checkbox" id="replaceChk"> 기존 메뉴 삭제 후 통일(교체) ⚠️
+            <input type="checkbox" id="replaceChk"> 기존 메뉴 삭제 후 통일(교체) — 주의
           </label>
         </div>
         <div id="reportBox" style="margin-top:14px; display:none">
@@ -119,7 +136,7 @@
           <p class="muted" style="margin:0 0 10px">선택한 지점의 <b>리뷰(작성자·별점·내용·작성일)</b>를 한곳에 모아 CSV로 저장합니다.
           <b>읽기 전용</b>이라 매장 정보는 바뀌지 않아요. (베타: 읽지 못한 지점은 '읽기 실패'로 표시)</p>
           <details>
-            <summary style="cursor:pointer; font-size:13px; color:var(--muted)">🤖 AI 답글 초안 (선택) — Anthropic API 키 필요</summary>
+            <summary style="cursor:pointer; font-size:13px; color:var(--muted)">AI 답글 초안 (선택) — Anthropic API 키 필요</summary>
             <div style="margin-top:10px">
               <p class="muted" style="margin:0 0 8px">수집한 리뷰에 <b>사장님 답글 초안</b>을 Claude로 생성합니다.
                 <b>초안만</b> 만들고, 검토 후 직접 게시하세요. 리뷰 본문이 Anthropic으로 전송됩니다.</p>
@@ -145,7 +162,7 @@
 
       <!-- 배달앱 손익계산서 (독립 도구 — 네이버 로그인 불필요) -->
       <section class="step" id="pnl">
-        <h2>📒 배달앱 손익계산서 <span class="muted" style="font-size:12px">베타</span></h2>
+        <h2>배달앱 손익계산서 <span class="muted" style="font-size:12px; font-weight:400">베타</span></h2>
         <p class="muted" style="margin:0 0 10px">배민·쿠팡이츠·요기요 <b>정산 파일(.xlsx)</b>을 올리면 매출−수수료−배달비−광고비−부가세를 계산해
           <b>손익계산서 보고서(엑셀)</b>를 만들어요. <b>업로드 방식·순수 로컬 계산</b>(AI/토큰비용 없음).</p>
         <div class="row">
@@ -353,7 +370,7 @@
         document.getElementById('progText').textContent = `${done} / ${total} 처리 중…`;
         const log = document.getElementById('log');
         const cls = ok ? 'ok' : 'fail';
-        const mark = ok ? '✅' : '❌';
+        const mark = ok ? '성공' : '실패';
         log.innerHTML += `<div class="${cls}">${mark} ${ps} ${err ? '— ' + err : ''}</div>`;
         log.scrollTop = log.scrollHeight;
       };
@@ -371,7 +388,7 @@
         document.getElementById('progText').innerHTML =
           `<b>수집 완료!</b> ${s.지점수}곳 (읽기 실패 ${s.읽기실패}곳)<br>` +
           `<span class="muted">합계 — ${sumStr || '읽은 지표 없음'}</span><br>` +
-          `<button class="btn" style="margin-top:10px" onclick="saveReport()">📥 CSV로 저장</button>`;
+          `<button class="btn" style="margin-top:10px" onclick="saveReport()">CSV로 저장</button>`;
         if (s.읽기실패 === s.지점수 && s.지점수 > 0) {
           document.getElementById('progText').innerHTML +=
             `<div class="error" style="margin-top:8px">모든 지점에서 통계를 읽지 못했습니다. ` +
@@ -387,12 +404,12 @@
         document.getElementById('runBtn').disabled = false;
         reviewRows = res.rows || [];
         const s = res.summary || { 리뷰수: 0, 지점수: 0, 읽기실패: 0, 평균별점: null };
-        const avg = (s.평균별점 === null || s.평균별점 === undefined) ? '-' : ('★' + s.평균별점);
+        const avg = (s.평균별점 === null || s.평균별점 === undefined) ? '-' : (s.평균별점 + '점');
         document.getElementById('progText').innerHTML =
           `<b>수집 완료!</b> 리뷰 ${s.리뷰수}건 / ${s.지점수}곳 (읽기 실패 ${s.읽기실패}곳) · 평균 ${avg}<br>` +
           (reviewRows.length
-            ? `<button class="btn" style="margin-top:10px" onclick="saveReviews()">📥 CSV로 저장</button>` +
-              `<button class="btn-ghost" style="margin:10px 0 0 8px" onclick="doDraft()">🤖 AI 답글 초안 생성</button>`
+            ? `<button class="btn" style="margin-top:10px" onclick="saveReviews()">CSV로 저장</button>` +
+              `<button class="btn-ghost" style="margin:10px 0 0 8px" onclick="doDraft()">AI 답글 초안 생성</button>`
             : `<div class="error" style="margin-top:8px">리뷰를 읽지 못했습니다. ` +
               `<code>~/.smartplace_beta/reviews_debug/</code> 의 파일을 개발자에게 보내주시면 맞춰 고칠 수 있어요.</div>`);
       };
@@ -406,7 +423,7 @@
       async function doDraft() {
         if (!reviewRows || !reviewRows.length) { alert('먼저 리뷰를 수집하세요'); return; }
         const key = (document.getElementById('apiKey').value || '').trim();
-        if (!key) { alert("Anthropic API 키를 입력하세요.\n('🤖 AI 답글 초안' 항목을 펼쳐 입력)"); return; }
+        if (!key) { alert("Anthropic API 키를 입력하세요.\n('AI 답글 초안' 항목을 펼쳐 입력)"); return; }
         const brand = document.getElementById('brand').value || '';
         const saveKey = document.getElementById('saveKey').checked;
         if (!confirm(reviewRows.length + '건의 리뷰에 답글 초안을 생성합니다. 리뷰 본문이 Anthropic으로 전송됩니다. 계속할까요?')) return;
@@ -423,8 +440,8 @@
         document.getElementById('progText').innerHTML =
           `<b>초안 생성 완료!</b> ${okN}/${draftRows.length}건` +
           (sample ? `<br><span class="muted">예시 — ${sample.작성자 || '익명'}: “${sample.답글초안}”</span>` : '') +
-          `<br><button class="btn" style="margin-top:10px" onclick="saveDrafts()">📥 답글 초안 CSV 저장</button>` +
-          `<div class="muted" style="margin-top:6px">⚠️ 초안입니다. 검토·수정 후 네이버에 직접 게시하세요.</div>`;
+          `<br><button class="btn" style="margin-top:10px" onclick="saveDrafts()">답글 초안 CSV 저장</button>` +
+          `<div class="muted" style="margin-top:6px">주의 — 초안입니다. 검토·수정 후 네이버에 직접 게시하세요.</div>`;
       };
       async function saveDrafts() {
         if (!draftRows || !draftRows.length) { alert('저장할 초안이 없습니다'); return; }
@@ -456,7 +473,7 @@
           document.getElementById('pnlPw').value, manual);
         if (out.error) { box.innerHTML = '<span class="error">오류: ' + out.error + '</span>'; return; }
         if (out.needs_baemin_password) {
-          box.innerHTML = '<span class="error">🔒 배민 정산파일에 비밀번호가 필요합니다. 위 칸에 입력 후 다시 생성하세요.</span>';
+          box.innerHTML = '<span class="error">배민 정산파일에 비밀번호가 필요합니다. 위 칸에 입력 후 다시 생성하세요.</span>';
           return;
         }
         renderPnl(out);
@@ -472,7 +489,7 @@
           ` <span class="muted">(${out.period || '기간'})</span></div>` +
           `<table class="table" style="margin-top:8px; max-width:420px">${rows}</table>` +
           (warns ? `<details style="margin-top:6px"><summary class="muted" style="cursor:pointer">경고·검증 (${out.warnings.length})</summary><ul class="muted" style="font-size:12px">${warns}</ul></details>` : '') +
-          `<button class="btn" style="margin-top:10px" onclick="savePnl()">📥 손익계산서(엑셀) 저장</button>`;
+          `<button class="btn" style="margin-top:10px" onclick="savePnl()">손익계산서(엑셀) 저장</button>`;
       }
       async function savePnl() {
         const r = await api().save_pnl_report();
