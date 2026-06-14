@@ -2,8 +2,8 @@
 
 # 📷 SmartPlace Bulk — Bulk manager for Naver SmartPlace
 
-> A **desktop app for franchise HQs** that registers a **main photo and menu across every branch at once**.
-> Log in to Naver → auto-load all branches → apply photos/menus to every store in one run.
+> An **all-in-one desktop app for managing every Naver SmartPlace branch** — for store owners & franchise HQs.
+> Bulk photo/menu · stats & review collection · AI reply drafts · **delivery-app (Baemin/Coupang Eats) P&L statement**, all in one place.
 
 > ⚠️ **Read the [DISCLAIMER](DISCLAIMER.md) before use.**
 > This is an unofficial tool, not affiliated with Naver. Automation may conflict with Naver's Terms of Service, and you use it at your own risk. **Only use it on stores you own or manage.**
@@ -19,12 +19,20 @@
 </p>
 
 ## What it does
-For a franchise with tens to hundreds of branches, work that used to be done **one store at a time** on Naver SmartPlace is done **all at once**:
+Work that used to be done **one store at a time** — now in one place:
+
+**Naver SmartPlace**
 - 🖼️ **Bulk main photo** — push a standard image to every branch (set as the main photo)
 - 🍽️ **Bulk menu** — unify a standard menu (CSV) across every branch (name, price, description, photo)
-- 🏷️ Auto-scrape the branch list (all branches under a brand)
+- 📊 **Stats collection** — gather visits/views/reviews/bookings per branch into CSV (read-only)
+- 💬 **Review collection** — gather author/rating/content into CSV (read-only)
+- 🤖 **AI reply drafts** — draft owner replies to collected reviews (Claude, *drafts only*)
 
-**Runs on the customer's PC with the customer's Naver account** → credentials never leave the machine (local-first).
+**Delivery apps**
+- 📒 **Delivery-app P&L** — Baemin/Coupang Eats/Yogiyo settlement files (.xlsx) → income-statement Excel (pure local calc, no token cost)
+
+**Runs on the customer's PC with the customer's account** → credentials & files never leave the machine (local-first).
+(Exception: AI reply drafts send review text to Anthropic using your own API key.)
 
 > 🚀 **Where do I start?**
 > · I just want to **use it** → [Download & install](#download--install) below (no setup, double-click)
@@ -40,19 +48,41 @@ For a franchise with tens to hundreds of branches, work that used to be done **o
 
 > If Windows shows a "protected your PC" warning → "More info" → "Run anyway" (a normal warning for an unsigned app).
 
-## How to use (4 steps)
-1. **Log in to Naver** — click the button to open the login window. Log in yourself (incl. CAPTCHA / 2FA).
-2. **Load branches** — enter the brand number → all branches appear automatically.
-3. **Choose a task** — main photo (folder) or menu (CSV).
-4. **Run in bulk** — branches are processed one by one with a progress bar.
+## 📖 User manual (by feature)
 
-Menu CSV format: see [`desktop/menu_template.csv`](desktop/menu_template.csv)
+> No tech skills needed — just follow the on-screen order.
+> Naver features (photo/menu/stats/reviews) need **① log in → ② load branches** first.
+> The **delivery-app P&L** works without login.
+
+### Common — getting started
+1. **Log in to Naver** — `네이버 로그인` button → log in as usual (ID/password/CAPTCHA/2FA). `로그인됨 ✅` means done (stays logged in next time).
+2. **Load branches** — enter the brand number → `지점 불러오기` → all branches appear; check the ones you want.
+   > 💡 The **brand number (brandSeq)** is the number after `brandSeq=` in your SmartPlace *brand management* page URL.
+
+### 🖼️ Bulk main photo
+1. Choose **대표사진 일괄** → 2. `이미지 폴더 선택` (folder of photos) → 3. `실행`.
+> 💡 The first time, **check just one branch** to test — it posts to the live listing.
+
+### 🍽️ Bulk menu
+1. **메뉴 일괄** → 2. `메뉴 양식(CSV) 받기`, fill it in Excel → 3. `작성한 CSV 선택` (+ image folder optional) → 4. optional **replace** checkbox (⚠️ deletes existing menus) → 5. `실행`.
 ```
 name,price,description,image,recommended
 Crispy Pajeon,6900,Crispy savory pancake,pajeon.jpg,Y
 ```
 
-> 💡 The first time, **select just one branch** to test (it really does post to the live listing).
+### 📊 Stats collection (read-only)
+**📊 리포트 수집** → `실행` → gathers visits/views/reviews/bookings → `CSV로 저장`. Doesn't change any store info.
+
+### 💬 Review collection (read-only)
+**💬 리뷰 수집** → `실행` → author/rating/content/date → `CSV로 저장`.
+
+### 🤖 AI reply drafts
+1. Collect reviews first → 2. open `🤖 AI 답글 초안`, enter your **Anthropic API key** → 3. optional brand instructions → `AI 답글 초안 생성` → `CSV 저장`.
+> ⚠️ **Drafts only** — review and post on Naver yourself. Review text is sent to Anthropic. Get a key at [console.anthropic.com](https://console.anthropic.com).
+
+### 📒 Delivery-app P&L (no login)
+1. Get **settlement files (.xlsx)** from Baemin/Coupang Eats/Yogiyo → 2. `정산 파일 선택` + tax type → 3. password if the Baemin file is encrypted → 4. optionally enter food/labor/rent/utility costs → 5. `손익계산서 생성` → review → `손익계산서(엑셀) 저장`.
+> ✅ Pure local calc, **no AI/token cost** — files never leave your PC. (Baemin settlement files are password-protected; Coupang/Yogiyo aren't.)
 
 ## Safety & privacy
 - The Naver login session is stored **only on the user's PC**; nothing is sent externally.
